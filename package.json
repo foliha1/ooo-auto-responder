@@ -1,0 +1,17 @@
+{
+  "name": "ooo-app",
+  "version": "1.0.0",
+  "description": "Auto Out of Office Responder",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "local": "node index.js"
+  },
+  "dependencies": {
+    "googleapis": "^128.0.0",
+    "@google-cloud/local-auth": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
