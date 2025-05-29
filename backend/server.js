@@ -9,15 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://ooo-app.vercel.app',
-    'https://ooo-app-*.vercel.app',
-    /^https:\/\/.*\.vercel\.app$/  // Allows all Vercel preview URLs
-  ],
-  credentials: true
-}));
+app.use(cors());
 app.use(express.json());
 
 // Define the permissions we need
@@ -66,6 +58,7 @@ async function loadSettings() {
     // Default settings
     const defaults = {
       defaultTone: 'professional',
+      selectedCalendarId: 'primary',  // Default to primary calendar
       templates: {
         professional: 'Hi there - I am currently out of office and will return on {date}. I will be checking messages periodically but may be slow to respond.',
         casual: 'Hey! I am away right now but I will get back to you as soon as I return on {date}. Thanks!'
@@ -132,12 +125,13 @@ app.get('/api/events', async (req, res) => {
   try {
     const auth = await authorize();
     const calendar = google.calendar({ version: 'v3', auth });
+    const settings = await loadSettings();
     
     const now = new Date();
     const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
     
     const response = await calendar.events.list({
-      calendarId: 'primary',
+      calendarId: settings.selectedCalendarId || 'primary',
       timeMin: now.toISOString(),
       timeMax: twoWeeksFromNow.toISOString(),
       singleEvents: true,
@@ -171,6 +165,30 @@ app.get('/api/settings', async (req, res) => {
   try {
     const settings = await loadSettings();
     res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get available calendars
+app.get('/api/calendars', async (req, res) => {
+  try {
+    const auth = await authorize();
+    const calendar = google.calendar({ version: 'v3', auth });
+    
+    const response = await calendar.calendarList.list({
+      minAccessRole: 'writer'  // Only calendars we can write to
+    });
+    
+    const calendars = response.data.items.map(cal => ({
+      id: cal.id,
+      summary: cal.summary,
+      primary: cal.primary || false,
+      backgroundColor: cal.backgroundColor,
+      accessRole: cal.accessRole
+    }));
+    
+    res.json({ calendars });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -252,6 +270,7 @@ app.post('/api/create-event', async (req, res) => {
   try {
     const auth = await authorize();
     const calendar = google.calendar({ version: 'v3', auth });
+    const settings = await loadSettings();
     
     const { summary, startDate, startTime, endDate, endTime, tone, customMessage, allDay } = req.body;
     
@@ -282,7 +301,7 @@ app.post('/api/create-event', async (req, res) => {
     
     // Create the event
     const response = await calendar.events.insert({
-      calendarId: 'primary',
+      calendarId: settings.selectedCalendarId || 'primary',
       requestBody: event
     });
     
@@ -304,6 +323,7 @@ app.delete('/api/delete-event/:eventId', async (req, res) => {
   try {
     const auth = await authorize();
     const calendar = google.calendar({ version: 'v3', auth });
+    const settings = await loadSettings();
     
     const { eventId } = req.params;
     
@@ -311,7 +331,7 @@ app.delete('/api/delete-event/:eventId', async (req, res) => {
     let eventSummary = 'Unknown event';
     try {
       const event = await calendar.events.get({
-        calendarId: 'primary',
+        calendarId: settings.selectedCalendarId || 'primary',
         eventId: eventId
       });
       eventSummary = event.data.summary || 'Untitled event';
@@ -321,7 +341,7 @@ app.delete('/api/delete-event/:eventId', async (req, res) => {
     
     // Delete the event
     await calendar.events.delete({
-      calendarId: 'primary',
+      calendarId: settings.selectedCalendarId || 'primary',
       eventId: eventId
     });
     
@@ -345,11 +365,12 @@ app.delete('/api/delete-event/:eventId', async (req, res) => {
 // Check if user is currently out of office
 async function checkOutOfOffice(auth) {
   const calendar = google.calendar({ version: 'v3', auth });
+  const settings = await loadSettings();
   const now = new Date();
   
   try {
     const response = await calendar.events.list({
-      calendarId: 'primary',
+      calendarId: settings.selectedCalendarId || 'primary',
       timeMin: now.toISOString(),
       timeMax: new Date(now.getTime() + 60000).toISOString(),
       singleEvents: true,

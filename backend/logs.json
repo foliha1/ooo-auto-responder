@@ -1,5 +1,97 @@
 [
   {
+    "timestamp": "2025-05-29T20:18:18.018Z",
+    "action": "auto_disabled",
+    "details": "Auto-responder disabled (no OOO events)"
+  },
+  {
+    "timestamp": "2025-05-29T20:15:39.128Z",
+    "action": "event_deleted",
+    "event": "Out of Office | professional",
+    "details": "Deleted OOO event: Out of Office | professional"
+  },
+  {
+    "timestamp": "2025-05-29T20:13:18.124Z",
+    "action": "auto_enabled",
+    "event": "Out of Office | professional",
+    "details": "Auto-responder enabled for: Out of Office | professional"
+  },
+  {
+    "timestamp": "2025-05-29T20:10:04.776Z",
+    "action": "manual_toggle",
+    "enabled": false,
+    "details": "Vacation responder manually disabled"
+  },
+  {
+    "timestamp": "2025-05-29T20:10:01.485Z",
+    "action": "manual_toggle",
+    "enabled": true,
+    "details": "Vacation responder manually enabled"
+  },
+  {
+    "timestamp": "2025-05-29T20:09:34.155Z",
+    "action": "event_created",
+    "event": "Out of Office",
+    "details": "Created OOO event: Out of Office"
+  },
+  {
+    "timestamp": "2025-05-29T20:08:18.148Z",
+    "action": "auto_disabled",
+    "details": "Auto-responder disabled (no OOO events)"
+  },
+  {
+    "timestamp": "2025-05-29T18:58:03.608Z",
+    "action": "auto_disabled",
+    "details": "Auto-responder disabled (no OOO events)"
+  },
+  {
+    "timestamp": "2025-05-29T18:52:46.373Z",
+    "action": "event_deleted",
+    "event": "Out of Office | casual",
+    "details": "Deleted OOO event: Out of Office | casual"
+  },
+  {
+    "timestamp": "2025-05-29T18:47:39.795Z",
+    "action": "event_created",
+    "event": "Out of Office",
+    "details": "Created OOO event: Out of Office"
+  },
+  {
+    "timestamp": "2025-05-29T18:46:00.701Z",
+    "action": "event_deleted",
+    "event": "Out of Office | casual",
+    "details": "Deleted OOO event: Out of Office | casual"
+  },
+  {
+    "timestamp": "2025-05-29T18:45:31.867Z",
+    "action": "auto_enabled",
+    "event": "Out of Office | casual",
+    "details": "Auto-responder enabled for: Out of Office | casual"
+  },
+  {
+    "timestamp": "2025-05-29T18:43:14.745Z",
+    "action": "auto_enabled",
+    "event": "Out of Office | casual",
+    "details": "Auto-responder enabled for: Out of Office | casual"
+  },
+  {
+    "timestamp": "2025-05-29T18:29:59.647Z",
+    "action": "auto_enabled",
+    "event": "Out of Office | casual",
+    "details": "Auto-responder enabled for: Out of Office | casual"
+  },
+  {
+    "timestamp": "2025-05-29T18:25:28.079Z",
+    "action": "event_created",
+    "event": "Out of Office",
+    "details": "Created OOO event: Out of Office"
+  },
+  {
+    "timestamp": "2025-05-29T18:24:59.753Z",
+    "action": "auto_disabled",
+    "details": "Auto-responder disabled (no OOO events)"
+  },
+  {
     "timestamp": "2025-05-29T17:55:37.813Z",
     "action": "auto_enabled",
     "event": "Out of Office | casual",
