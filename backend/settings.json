@@ -1,0 +1,7 @@
+{
+  "defaultTone": "professional",
+  "templates": {
+    "professional": "Hi there - I am currently out of office and will return on {date}. I will be checking messages periodically but may be slow to respond.",
+    "casual": "Hey! I am away right now but I will get back to you as soon as I return on {date}. Thanks!"
+  }
+}

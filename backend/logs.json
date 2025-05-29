@@ -1,0 +1,130 @@
+[
+  {
+    "timestamp": "2025-05-29T17:55:37.813Z",
+    "action": "auto_enabled",
+    "event": "Out of Office | casual",
+    "details": "Auto-responder enabled for: Out of Office | casual"
+  },
+  {
+    "timestamp": "2025-05-29T17:51:30.620Z",
+    "action": "event_created",
+    "event": "Out of Office",
+    "details": "Created OOO event: Out of Office"
+  },
+  {
+    "timestamp": "2025-05-29T17:50:37.925Z",
+    "action": "auto_disabled",
+    "details": "Auto-responder disabled (no OOO events)"
+  },
+  {
+    "timestamp": "2025-05-29T17:47:40.698Z",
+    "action": "auto_enabled",
+    "event": "Out of Office | casual",
+    "details": "Auto-responder enabled for: Out of Office | casual"
+  },
+  {
+    "timestamp": "2025-05-29T17:44:05.428Z",
+    "action": "event_created",
+    "event": "Out of Office",
+    "details": "Created OOO event: Out of Office"
+  },
+  {
+    "timestamp": "2025-05-29T17:43:50.198Z",
+    "action": "event_created",
+    "event": "Out of Office",
+    "details": "Created OOO event: Out of Office"
+  },
+  {
+    "timestamp": "2025-05-29T17:42:40.755Z",
+    "action": "auto_disabled",
+    "details": "Auto-responder disabled (no OOO events)"
+  },
+  {
+    "timestamp": "2025-05-29T17:37:52.332Z",
+    "action": "auto_disabled",
+    "details": "Auto-responder disabled (no OOO events)"
+  },
+  {
+    "timestamp": "2025-05-29T17:31:50.693Z",
+    "action": "auto_disabled",
+    "details": "Auto-responder disabled (no OOO events)"
+  },
+  {
+    "timestamp": "2025-05-29T17:05:45.974Z",
+    "action": "auto_disabled",
+    "details": "Auto-responder disabled (no OOO events)"
+  },
+  {
+    "timestamp": "2025-05-29T17:04:01.470Z",
+    "action": "auto_disabled",
+    "details": "Auto-responder disabled (no OOO events)"
+  },
+  {
+    "timestamp": "2025-05-29T16:45:07.911Z",
+    "action": "auto_disabled",
+    "details": "Auto-responder disabled (no OOO events)"
+  },
+  {
+    "timestamp": "2025-05-24T04:36:49.196Z",
+    "action": "manual_toggle",
+    "enabled": true,
+    "details": "Vacation responder manually enabled"
+  },
+  {
+    "timestamp": "2025-05-24T04:36:45.053Z",
+    "action": "manual_toggle",
+    "enabled": false,
+    "details": "Vacation responder manually disabled"
+  },
+  {
+    "timestamp": "2025-05-24T04:36:44.809Z",
+    "action": "manual_toggle",
+    "enabled": false,
+    "details": "Vacation responder manually disabled"
+  },
+  {
+    "timestamp": "2025-05-24T04:34:34.450Z",
+    "action": "automation_toggled",
+    "enabled": true,
+    "details": "Automation enabled"
+  },
+  {
+    "timestamp": "2025-05-24T04:34:31.824Z",
+    "action": "automation_toggled",
+    "enabled": false,
+    "details": "Automation disabled"
+  },
+  {
+    "timestamp": "2025-05-24T04:34:29.646Z",
+    "action": "automation_toggled",
+    "enabled": true,
+    "details": "Automation enabled"
+  },
+  {
+    "timestamp": "2025-05-24T04:34:26.733Z",
+    "action": "automation_toggled",
+    "enabled": false,
+    "details": "Automation disabled"
+  },
+  {
+    "timestamp": "2025-05-24T04:34:17.510Z",
+    "action": "settings_updated",
+    "details": "Settings were updated"
+  },
+  {
+    "timestamp": "2025-05-24T04:34:15.369Z",
+    "action": "settings_updated",
+    "details": "Settings were updated"
+  },
+  {
+    "timestamp": "2025-05-24T04:34:05.436Z",
+    "action": "manual_toggle",
+    "enabled": true,
+    "details": "Vacation responder manually enabled"
+  },
+  {
+    "timestamp": "2025-05-24T04:28:08.788Z",
+    "action": "auto_disabled",
+    "details": "Auto-responder disabled (no OOO events)"
+  }
+]
