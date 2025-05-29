@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Sensitive files - NEVER commit these
+backend/credentials.json
+backend/token.json
+credentials.json
+token.json
+*.json
+
+# Keep package.json files
+!package.json
+!package-lock.json
+!*/package.json
+!*/package-lock.json
+
+# Generated files
+backend/settings.json
+backend/logs.json
+
+# OS files
+.DS_Store
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
