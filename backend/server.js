@@ -9,7 +9,15 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://ooo-app.vercel.app',
+    'https://ooo-app-*.vercel.app',
+    /^https:\/\/.*\.vercel\.app$/  // Allows all Vercel preview URLs
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 // Define the permissions we need
@@ -136,12 +144,21 @@ app.get('/api/events', async (req, res) => {
       orderBy: 'startTime',
     });
     
-    // Filter for OOO events
-    const oooEvents = response.data.items.filter(event => {
-      const summary = event.summary || '';
-      const eventType = event.eventType || 'default';
-      return eventType === 'outOfOffice' || summary.toLowerCase().includes('out of office');
-    });
+    // Filter for OOO events and include IDs
+    const oooEvents = response.data.items
+      .filter(event => {
+        const summary = event.summary || '';
+        const eventType = event.eventType || 'default';
+        return eventType === 'outOfOffice' || summary.toLowerCase().includes('out of office');
+      })
+      .map(event => ({
+        id: event.id,
+        summary: event.summary,
+        start: event.start,
+        end: event.end,
+        description: event.description,
+        location: event.location
+      }));
     
     res.json({ events: oooEvents });
   } catch (error) {
@@ -279,6 +296,49 @@ app.post('/api/create-event', async (req, res) => {
   } catch (error) {
     console.error('Error creating event:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete OOO event
+app.delete('/api/delete-event/:eventId', async (req, res) => {
+  try {
+    const auth = await authorize();
+    const calendar = google.calendar({ version: 'v3', auth });
+    
+    const { eventId } = req.params;
+    
+    // Get event details first (for logging)
+    let eventSummary = 'Unknown event';
+    try {
+      const event = await calendar.events.get({
+        calendarId: 'primary',
+        eventId: eventId
+      });
+      eventSummary = event.data.summary || 'Untitled event';
+    } catch (err) {
+      // Event might not exist, continue with deletion attempt
+    }
+    
+    // Delete the event
+    await calendar.events.delete({
+      calendarId: 'primary',
+      eventId: eventId
+    });
+    
+    await addLog({
+      action: 'event_deleted',
+      event: eventSummary,
+      details: `Deleted OOO event: ${eventSummary}`
+    });
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting event:', error);
+    if (error.code === 404) {
+      res.status(404).json({ error: 'Event not found' });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
   }
 });
 
