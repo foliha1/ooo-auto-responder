@@ -276,12 +276,8 @@ const SLACK_REDIRECT_URI = 'https://ooo-api-o6ab.onrender.com/api/slack/callback
 
 // Initiate Slack OAuth
 app.get('/api/slack/auth', (req, res) => {
-  const scopes = 'users.profile:write,users:write';
-  const authUrl = `https://slack.com/oauth/v2/authorize?client_id=${SLACK_CLIENT_ID}&user_scope=${scopes}&redirect_uri=${encodeURIComponent(SLACK_REDIRECT_URI)}`;
-  
-  console.log('Slack Client ID:', SLACK_CLIENT_ID);
-  console.log('Generated Auth URL:', authUrl);
-  
+  const scopes = 'users.profile:write,users:write,users:read';
+  const authUrl = `https://slack.com/oauth/v2/authorize?client_id=${SLACK_CLIENT_ID}&scope=${scopes}&redirect_uri=${SLACK_REDIRECT_URI}`;
   res.json({ authUrl });
 });
 
@@ -338,7 +334,7 @@ async function updateSlackStatus(settings, oooStatus) {
   }
   
   try {
-    let statusText = settings.slackStatusTemplate || 'Out of Office until {date}';  // Add default
+    let statusText = settings.slackStatusTemplate;
     if (oooStatus.isOOO) {
       const endDate = new Date(oooStatus.endTime);
       const dateStr = endDate.toLocaleDateString('en-US', { 
@@ -451,12 +447,19 @@ app.post('/api/create-event', async (req, res) => {
     
     // Build event object - without eventType to avoid description restriction
     const event = {
-      summary: tone ? `${summary} | ${tone}` : summary
+      summary: summary  // Just use the summary without tone
     };
     
-    // Only add description if there's a custom message and we're not using eventType
+    // Store tone in description along with custom message
+    let descriptionContent = [];
+    if (tone) {
+      descriptionContent.push(`[[OOO_TONE: ${tone}]]`);
+    }
     if (customMessage) {
-      event.description = `[[OOO_MESSAGE: ${customMessage}]]`;
+      descriptionContent.push(`[[OOO_MESSAGE: ${customMessage}]]`);
+    }
+    if (descriptionContent.length > 0) {
+      event.description = descriptionContent.join('\n');
     }
     
     // Handle date/time with timezone
@@ -568,8 +571,14 @@ async function checkOutOfOffice(auth) {
           if (messageMatch) {
             customMessage = messageMatch[1];
           }
+          
+          const toneMatch = event.description.match(/\[\[OOO_TONE:\s*(.*?)\]\]/);
+          if (toneMatch) {
+            tone = toneMatch[1];
+          }
         }
         
+        // Fallback: Check title for legacy tone format
         if (summary.includes('|')) {
           const parts = summary.split('|');
           const possibleTone = parts[1].trim().toLowerCase();
