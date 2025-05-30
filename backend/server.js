@@ -277,7 +277,7 @@ const SLACK_REDIRECT_URI = 'https://ooo-api-o6ab.onrender.com/api/slack/callback
 // Initiate Slack OAuth
 app.get('/api/slack/auth', (req, res) => {
   const scopes = 'users.profile:write,users:write';
-  const authUrl = `https://slack.com/oauth/v2/authorize?client_id=${SLACK_CLIENT_ID}&scope=${scopes}&redirect_uri=${SLACK_REDIRECT_URI}`;
+  const authUrl = `https://slack.com/oauth/v2/authorize?client_id=${SLACK_CLIENT_ID}&scope=${scopes}&redirect_uri=${encodeURIComponent(SLACK_REDIRECT_URI)}`;
   res.json({ authUrl });
 });
 
