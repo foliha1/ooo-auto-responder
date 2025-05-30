@@ -338,7 +338,7 @@ async function updateSlackStatus(settings, oooStatus) {
   }
   
   try {
-    let statusText = settings.slackStatusTemplate;
+    let statusText = settings.slackStatusTemplate || 'Out of Office until {date}';  // Add default
     if (oooStatus.isOOO) {
       const endDate = new Date(oooStatus.endTime);
       const dateStr = endDate.toLocaleDateString('en-US', { 
