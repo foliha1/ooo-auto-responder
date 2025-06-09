@@ -58,11 +58,7 @@ async function loadSettings() {
     // Default settings
     const defaults = {
       defaultTone: 'professional',
-      selectedCalendarId: 'primary',
-      slackEnabled: false,
-      slackToken: null,
-      slackEmoji: ':palm_tree:',
-      slackStatusTemplate: 'Out of Office until {date}',
+      selectedCalendarId: 'primary',  // Default to primary calendar
       templates: {
         professional: 'Hi there - I am currently out of office and will return on {date}. I will be checking messages periodically but may be slow to respond.',
         casual: 'Hey! I am away right now but I will get back to you as soon as I return on {date}. Thanks!'
@@ -269,179 +265,6 @@ app.get('/api/logs', async (req, res) => {
   }
 });
 
-// Slack OAuth configuration
-const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID || '353761788483.8996990423200';
-const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET || '80f3c71907df86d6c0e22bdb116a0d4d';
-const SLACK_REDIRECT_URI = 'https://ooo-api-o6ab.onrender.com/api/slack/callback';
-
-// Initiate Slack OAuth
-app.get('/api/slack/auth', (req, res) => {
-  const scopes = 'users.profile:write,users:write,users:read';
-  const authUrl = `https://slack.com/oauth/v2/authorize?client_id=${SLACK_CLIENT_ID}&scope=${scopes}&redirect_uri=${SLACK_REDIRECT_URI}`;
-  res.json({ authUrl });
-});
-
-// Slack OAuth callback
-app.get('/api/slack/callback', async (req, res) => {
-  const { code } = req.query;
-  
-  try {
-    // Exchange code for token
-    const response = await fetch('https://slack.com/api/oauth.v2.access', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        client_id: SLACK_CLIENT_ID,
-        client_secret: SLACK_CLIENT_SECRET,
-        code: code,
-        redirect_uri: SLACK_REDIRECT_URI
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (data.ok) {
-      // Save the token
-      const settings = await loadSettings();
-      settings.slackToken = data.authed_user.access_token;
-      settings.slackUserId = data.authed_user.id;
-      settings.slackTeamId = data.team.id;
-      settings.slackEnabled = true;
-      await saveSettings(settings);
-      
-      await addLog({
-        action: 'slack_connected',
-        details: 'Connected Slack workspace successfully'
-      });
-      
-      // Redirect to PRODUCTION frontend
-      res.redirect('https://ooo-otghhbxfg-felixs-projects-98c54b12.vercel.app?slack=connected');
-    } else {
-      res.redirect('https://ooo-otghhbxfg-felixs-projects-98c54b12.vercel.app?slack=error');
-    }
-  } catch (error) {
-    console.error('Slack OAuth error:', error);
-    res.redirect('https://ooo-otghhbxfg-felixs-projects-98c54b12.vercel.app?slack=error');
-  }
-});
-
-// Update Slack status
-async function updateSlackStatus(settings, oooStatus) {
-  if (!settings.slackEnabled || !settings.slackToken) {
-    console.log('⚠️ Slack is disabled or token missing');
-    return;
-  }
-
-  try {
-    let statusText = settings.slackStatusTemplate || 'Out of Office until {date}';
-
-    if (oooStatus.isOOO) {
-      const endDate = new Date(oooStatus.endTime);
-      const dateStr = endDate.toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric'
-      });
-      statusText = statusText.replace('{date}', dateStr);
-
-      // Update Slack status
-      const profileRes = await fetch('https://slack.com/api/users.profile.set', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${settings.slackToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          profile: {
-            status_text: statusText,
-            status_emoji: settings.slackEmoji || ':palm_tree:',
-            status_expiration: Math.floor(new Date(oooStatus.endTime).getTime() / 1000)
-          }
-        })
-      });
-      const profileData = await profileRes.json();
-      console.log('✅ Slack status set response:', profileData);
-
-      // Set presence to 'away'
-      const presenceRes = await fetch('https://slack.com/api/users.setPresence', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${settings.slackToken}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: new URLSearchParams({ presence: 'away' })
-      });
-      const presenceData = await presenceRes.json();
-      console.log('✅ Slack presence set to away:', presenceData);
-
-      await addLog({
-        action: 'slack_status_updated',
-        details: `Slack status set: ${statusText}`
-      });
-    } else {
-      // Clear Slack status
-      const profileClearRes = await fetch('https://slack.com/api/users.profile.set', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${settings.slackToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          profile: {
-            status_text: '',
-            status_emoji: '',
-            status_expiration: 0
-          }
-        })
-      });
-      const profileClearData = await profileClearRes.json();
-      console.log('🧹 Slack status cleared response:', profileClearData);
-
-      // Set presence to 'auto'
-      const presenceResetRes = await fetch('https://slack.com/api/users.setPresence', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${settings.slackToken}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: new URLSearchParams({ presence: 'auto' })
-      });
-      const presenceResetData = await presenceResetRes.json();
-      console.log('🔄 Slack presence reset to auto:', presenceResetData);
-
-      await addLog({
-        action: 'slack_status_cleared',
-        details: 'Slack status cleared'
-      });
-    }
-  } catch (error) {
-    console.error('❌ Error updating Slack status:', error);
-  }
-}
-
-// Disconnect Slack
-app.post('/api/slack/disconnect', async (req, res) => {
-  try {
-    const settings = await loadSettings();
-    settings.slackEnabled = false;
-    settings.slackToken = null;
-    settings.slackUserId = null;
-    settings.slackTeamId = null;
-    await saveSettings(settings);
-    
-    await addLog({
-      action: 'slack_disconnected',
-      details: 'Disconnected Slack workspace'
-    });
-    
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // Create OOO event
 app.post('/api/create-event', async (req, res) => {
   try {
@@ -453,19 +276,12 @@ app.post('/api/create-event', async (req, res) => {
     
     // Build event object - without eventType to avoid description restriction
     const event = {
-      summary: summary  // Just use the summary without tone
+      summary: tone ? `${summary} | ${tone}` : summary
     };
     
-    // Store tone in description along with custom message
-    let descriptionContent = [];
-    if (tone) {
-      descriptionContent.push(`[[OOO_TONE: ${tone}]]`);
-    }
+    // Only add description if there's a custom message and we're not using eventType
     if (customMessage) {
-      descriptionContent.push(`[[OOO_MESSAGE: ${customMessage}]]`);
-    }
-    if (descriptionContent.length > 0) {
-      event.description = descriptionContent.join('\n');
+      event.description = `[[OOO_MESSAGE: ${customMessage}]]`;
     }
     
     // Handle date/time with timezone
@@ -577,14 +393,8 @@ async function checkOutOfOffice(auth) {
           if (messageMatch) {
             customMessage = messageMatch[1];
           }
-          
-          const toneMatch = event.description.match(/\[\[OOO_TONE:\s*(.*?)\]\]/);
-          if (toneMatch) {
-            tone = toneMatch[1];
-          }
         }
         
-        // Fallback: Check title for legacy tone format
         if (summary.includes('|')) {
           const parts = summary.split('|');
           const possibleTone = parts[1].trim().toLowerCase();
@@ -661,10 +471,6 @@ async function updateGmailResponder(auth, oooStatus) {
         details: 'Auto-responder disabled (no OOO events)'
       });
     }
-    
-    // Update Slack status too
-    await updateSlackStatus(settings, oooStatus);
-    
   } catch (error) {
     console.error('Error updating Gmail responder:', error);
   }
