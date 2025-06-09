@@ -330,22 +330,24 @@ app.get('/api/slack/callback', async (req, res) => {
 // Update Slack status
 async function updateSlackStatus(settings, oooStatus) {
   if (!settings.slackEnabled || !settings.slackToken) {
+    console.log('⚠️ Slack is disabled or token missing');
     return;
   }
-  
+
   try {
-    let statusText = settings.slackStatusTemplate;
+    let statusText = settings.slackStatusTemplate || 'Out of Office until {date}';
+
     if (oooStatus.isOOO) {
       const endDate = new Date(oooStatus.endTime);
-      const dateStr = endDate.toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
+      const dateStr = endDate.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
       });
       statusText = statusText.replace('{date}', dateStr);
-      
-      // Set status with expiration
-      const profileUpdate = await fetch('https://slack.com/api/users.profile.set', {
+
+      // Update Slack status
+      const profileRes = await fetch('https://slack.com/api/users.profile.set', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${settings.slackToken}`,
@@ -359,26 +361,28 @@ async function updateSlackStatus(settings, oooStatus) {
           }
         })
       });
-      
-      // Set presence to away
-      const presenceUpdate = await fetch('https://slack.com/api/users.setPresence', {
+      const profileData = await profileRes.json();
+      console.log('✅ Slack status set response:', profileData);
+
+      // Set presence to 'away'
+      const presenceRes = await fetch('https://slack.com/api/users.setPresence', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${settings.slackToken}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: JSON.stringify({
-          presence: 'away'
-        })
+        body: new URLSearchParams({ presence: 'away' })
       });
-      
+      const presenceData = await presenceRes.json();
+      console.log('✅ Slack presence set to away:', presenceData);
+
       await addLog({
         action: 'slack_status_updated',
         details: `Slack status set: ${statusText}`
       });
     } else {
-      // Clear status
-      await fetch('https://slack.com/api/users.profile.set', {
+      // Clear Slack status
+      const profileClearRes = await fetch('https://slack.com/api/users.profile.set', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${settings.slackToken}`,
@@ -392,26 +396,28 @@ async function updateSlackStatus(settings, oooStatus) {
           }
         })
       });
-      
-      // Set presence to auto
-      await fetch('https://slack.com/api/users.setPresence', {
+      const profileClearData = await profileClearRes.json();
+      console.log('🧹 Slack status cleared response:', profileClearData);
+
+      // Set presence to 'auto'
+      const presenceResetRes = await fetch('https://slack.com/api/users.setPresence', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${settings.slackToken}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: JSON.stringify({
-          presence: 'auto'
-        })
+        body: new URLSearchParams({ presence: 'auto' })
       });
-      
+      const presenceResetData = await presenceResetRes.json();
+      console.log('🔄 Slack presence reset to auto:', presenceResetData);
+
       await addLog({
         action: 'slack_status_cleared',
         details: 'Slack status cleared'
       });
     }
   } catch (error) {
-    console.error('Error updating Slack status:', error);
+    console.error('❌ Error updating Slack status:', error);
   }
 }
 
