@@ -100,13 +100,29 @@ async function addLog(entry) {
 async function loadPTOData() {
   try {
     const data = await fs.readFile(PTO_DATA_PATH, 'utf8');
-    return JSON.parse(data);
+    const parsedData = JSON.parse(data);
+    
+    // Check if we need to reset PTO for new year
+    const currentYear = new Date().getFullYear();
+    if (!parsedData.lastResetYear || parsedData.lastResetYear < currentYear) {
+      console.log(`New year detected! Resetting PTO balance for ${currentYear}`);
+      parsedData.ptoBalance = {
+        available: 15, // Reset to default annual PTO
+        used: 0,
+        planned: 0
+      };
+      parsedData.lastResetYear = currentYear;
+      await savePTOData(parsedData);
+    }
+    
+    return parsedData;
   } catch (error) {
     // File doesn't exist, return defaults with pre-populated holidays
     const currentYear = new Date().getFullYear();
     
     const defaults = {
       ptoBalance: { available: 15, used: 0, planned: 0 },
+      lastResetYear: currentYear,
       holidays: [
         { id: 'h1', name: "New Year's Day", date: '2025-01-01', observedDate: '2025-01-01' },
         { id: 'h2', name: 'Martin Luther King Jr. Day', date: '2025-01-20', observedDate: '2025-01-20' },

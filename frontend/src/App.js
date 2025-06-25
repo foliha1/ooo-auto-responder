@@ -115,6 +115,7 @@ function App() {
   const [ptoBalance, setPtoBalance] = useState({ available: 0, used: 0, planned: 0 });
   const [holidays, setHolidays] = useState([]);
   const [ptoSuggestions, setPtoSuggestions] = useState([]);
+  const [appliedSuggestions, setAppliedSuggestions] = useState(new Set());
   const [showPTOModal, setShowPTOModal] = useState(false);
   const [showHolidayModal, setShowHolidayModal] = useState(false);
   const [showSuggestionConfirm, setShowSuggestionConfirm] = useState(false);
@@ -127,7 +128,8 @@ function App() {
     endTime: '17:00',
     tone: 'professional',
     customMessage: '',
-    allDay: false
+    allDay: false,
+    deductFromPTO: false
   });
 
   const API_URL = process.env.REACT_APP_API_URL || 'https://ooo-api-o6ab.onrender.com/api';
@@ -307,6 +309,9 @@ function App() {
       };
       await updatePTOBalance(newBalance);
       
+      // Mark this suggestion as applied
+      setAppliedSuggestions(prev => new Set([...prev, suggestion.title]));
+      
       showToast(`${suggestion.totalDaysOff} day break scheduled! Enjoy your time off 🌴`, 'success');
       fetchData();
       fetchPTOData();
@@ -395,6 +400,20 @@ function App() {
       });
       
       if (response.ok) {
+        // Calculate PTO days if deducting
+        if (newEvent.deductFromPTO) {
+          const startDate = new Date(newEvent.startDate);
+          const endDate = new Date(newEvent.endDate);
+          const ptoDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+          
+          const newBalance = {
+            ...ptoBalance,
+            available: Math.max(0, ptoBalance.available - ptoDays),
+            used: ptoBalance.used + ptoDays
+          };
+          await updatePTOBalance(newBalance);
+        }
+        
         setNewEvent({
           summary: 'Out of Office',
           startDate: '',
@@ -403,11 +422,13 @@ function App() {
           endTime: '17:00',
           tone: 'professional',
           customMessage: '',
-          allDay: false
+          allDay: false,
+          deductFromPTO: false
         });
         setShowScheduler(false);
         showToast('Your time off is scheduled! Rest well 🌴', 'success');
         fetchData();
+        fetchPTOData();
       } else {
         showToast('Couldn\'t create that event. Let\'s troubleshoot 🔧', 'error');
       }
@@ -675,6 +696,23 @@ function App() {
                       />
                       Full day(s) of restoration
                     </label>
+                  </div>
+                  
+                  <div style={styles.formGroup}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={newEvent.deductFromPTO}
+                        onChange={(e) => setNewEvent({...newEvent, deductFromPTO: e.target.checked})}
+                        style={{ marginRight: '0.5rem' }}
+                      />
+                      Deduct from PTO balance
+                    </label>
+                    {newEvent.deductFromPTO && (
+                      <small style={{ display: 'block', marginTop: '0.5rem', color: '#6b7280' }}>
+                        This will reduce your available PTO days
+                      </small>
+                    )}
                   </div>
                   
                   <div style={styles.formGroup}>
@@ -948,33 +986,48 @@ function App() {
                 </p>
               ) : (
                 <div>
-                  {ptoSuggestions.map((suggestion, i) => (
-                    <div 
-                      key={i} 
-                      style={styles.suggestionCard}
-                      onClick={() => {
-                        setModalData({ suggestion });
-                        setShowSuggestionConfirm(true);
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                      onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                    >
-                      <div style={styles.suggestionHeader}>
-                        <div>
-                          <div style={styles.suggestionTitle}>{suggestion.title}</div>
-                          <div style={styles.suggestionDays}>
-                            {suggestion.dateRange} • Use {suggestion.ptoDaysCount} PTO day{suggestion.ptoDaysCount > 1 ? 's' : ''}
+                  {ptoSuggestions.map((suggestion, i) => {
+                    const isApplied = appliedSuggestions.has(suggestion.title);
+                    return (
+                      <div 
+                        key={i} 
+                        style={{
+                          ...styles.suggestionCard,
+                          opacity: isApplied ? 0.7 : 1,
+                          cursor: isApplied ? 'default' : 'pointer'
+                        }}
+                        onClick={() => {
+                          if (!isApplied) {
+                            setModalData({ suggestion });
+                            setShowSuggestionConfirm(true);
+                          }
+                        }}
+                        onMouseEnter={(e) => !isApplied && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                        onMouseLeave={(e) => !isApplied && (e.currentTarget.style.transform = 'translateY(0)')}
+                      >
+                        <div style={styles.suggestionHeader}>
+                          <div>
+                            <div style={styles.suggestionTitle}>
+                              {suggestion.title}
+                              {isApplied && <span style={{ marginLeft: '0.5rem', color: '#7ea474' }}>✓</span>}
+                            </div>
+                            <div style={styles.suggestionDays}>
+                              {suggestion.dateRange} • Use {suggestion.ptoDaysCount} PTO day{suggestion.ptoDaysCount > 1 ? 's' : ''}
+                            </div>
+                          </div>
+                          <div style={{
+                            ...styles.suggestionBadge,
+                            background: isApplied ? '#7ea474' : styles.suggestionBadge.background
+                          }}>
+                            {isApplied ? 'Scheduled' : `${suggestion.totalDaysOff} days off`}
                           </div>
                         </div>
-                        <div style={styles.suggestionBadge}>
-                          {suggestion.totalDaysOff} days off
+                        <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem' }}>
+                          {suggestion.description}
                         </div>
                       </div>
-                      <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem' }}>
-                        {suggestion.description}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
