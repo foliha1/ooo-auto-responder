@@ -24,62 +24,98 @@ export const animationStyles = `
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
   }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 `;
+
+// Color palette inspired by My Mind
+const colors = {
+  // Soft, warm neutrals
+  background: '#fdfbf7',      // Very soft warm white
+  surface: '#ffffff',         // Pure white for cards
+  surfaceAlt: '#faf8f5',     // Slightly warmer surface
+  
+  // Text colors
+  textPrimary: '#2d2926',    // Soft black
+  textSecondary: '#6b6460',  // Warm gray
+  textMuted: '#a09691',      // Muted brown-gray
+  
+  // Accent colors (softer, more muted)
+  primary: '#8b7355',        // Warm brown
+  primaryLight: '#a89072',   // Lighter warm brown
+  primaryDark: '#6e5a42',    // Darker warm brown
+  
+  // Status colors (gentler versions)
+  success: '#7ea474',        // Sage green
+  error: '#d68876',          // Dusty rose
+  warning: '#e4a853',        // Warm yellow
+  info: '#7a95b8',           // Soft blue
+  
+  // Borders and dividers
+  border: 'rgba(45, 41, 38, 0.08)',
+  borderLight: 'rgba(45, 41, 38, 0.04)',
+};
 
 // Toast styles
 export const getToastStyles = (isExiting) => ({
   position: 'fixed',
-  top: '20px',
-  right: '20px',
-  padding: '16px 24px',
-  borderRadius: '12px',
-  color: 'white',
-  fontWeight: '500',
+  top: '24px',
+  right: '24px',
+  padding: '18px 24px',
+  borderRadius: '16px',
+  color: colors.textPrimary,
+  fontWeight: '400',
   display: 'flex',
   alignItems: 'center',
-  gap: '12px',
-  boxShadow: '0 6px 16px rgba(0,0,0,0.2)',
+  gap: '14px',
+  boxShadow: '0 4px 20px rgba(45, 41, 38, 0.08)',
+  border: `1px solid ${colors.borderLight}`,
   animation: isExiting ? 'slideOut 0.3s ease-in' : 'slideIn 0.3s ease-out',
   zIndex: 1000,
-  maxWidth: '400px',
-  minWidth: '300px'
+  maxWidth: '380px',
+  minWidth: '280px',
+  backgroundColor: colors.surface,
+  fontSize: '15px',
+  lineHeight: '1.5'
 });
 
 export const toastTypeStyles = {
   success: { 
-    backgroundColor: '#10b981',
-    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+    backgroundColor: colors.surface,
+    borderColor: colors.success + '30',
   },
   error: { 
-    backgroundColor: '#ef4444',
-    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+    backgroundColor: colors.surface,
+    borderColor: colors.error + '30',
   },
   info: { 
-    backgroundColor: '#3b82f6',
-    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
+    backgroundColor: colors.surface,
+    borderColor: colors.info + '30',
   },
   warning: {
-    backgroundColor: '#f59e0b',
-    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+    backgroundColor: colors.surface,
+    borderColor: colors.warning + '30',
   }
 };
 
 export const toastIcons = {
-  success: '✨',
-  error: '🛡️',
-  info: '💡',
-  warning: '⚡'
+  success: '🌱',
+  error: '🌸',
+  info: '💫',
+  warning: '🌟'
 };
 
 export const toastCloseButtonStyle = {
-  background: 'rgba(255,255,255,0.2)',
+  background: 'transparent',
   border: 'none',
-  color: 'white',
+  color: colors.textMuted,
   cursor: 'pointer',
-  fontSize: '18px',
-  width: '24px',
-  height: '24px',
-  borderRadius: '50%',
+  fontSize: '20px',
+  width: '28px',
+  height: '28px',
+  borderRadius: '8px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -94,133 +130,158 @@ export const styles = {
     minHeight: '100vh',
     display: 'flex',
     flexDirection: 'column',
-    backgroundColor: '#f5f7fa'
+    backgroundColor: colors.background,
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    color: colors.textPrimary,
   },
   loading: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'column',
-    minHeight: '100vh'
+    minHeight: '100vh',
+    gap: '24px'
   },
   spinner: {
-    width: '40px',
-    height: '40px',
-    border: '3px solid #f3f3f3',
-    borderTop: '3px solid #3498db',
+    width: '36px',
+    height: '36px',
+    border: `2px solid ${colors.borderLight}`,
+    borderTop: `2px solid ${colors.primary}`,
     borderRadius: '50%',
     animation: 'spin 1s linear infinite'
   },
   header: {
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    color: 'white',
-    padding: '1.5rem 2rem',
+    background: colors.surface,
+    color: colors.textPrimary,
+    padding: '2rem 2.5rem',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    borderBottom: `1px solid ${colors.borderLight}`,
+    boxShadow: '0 1px 3px rgba(45, 41, 38, 0.03)'
   },
   headerTitle: {
     margin: 0,
-    fontSize: '1.75rem'
+    fontSize: '1.5rem',
+    fontWeight: '500',
+    letterSpacing: '-0.02em',
+    color: colors.textPrimary
   },
   statusBadge: {
     display: 'flex',
     alignItems: 'center',
-    background: 'rgba(255,255,255,0.2)',
-    padding: '0.5rem 1rem',
-    borderRadius: '20px',
-    fontSize: '0.9rem'
+    background: colors.surfaceAlt,
+    padding: '0.625rem 1.25rem',
+    borderRadius: '24px',
+    fontSize: '0.875rem',
+    border: `1px solid ${colors.borderLight}`,
+    fontWeight: '500'
   },
   statusDot: {
     width: '8px',
     height: '8px',
     borderRadius: '50%',
-    marginRight: '0.5rem'
+    marginRight: '0.625rem'
   },
   statusDotActive: {
-    backgroundColor: '#4ade80',
-    boxShadow: '0 0 0 2px rgba(74, 222, 128, 0.3)'
+    backgroundColor: colors.success,
+    boxShadow: `0 0 0 3px ${colors.success}20`
   },
   statusDotInactive: {
-    backgroundColor: '#ef4444',
-    boxShadow: '0 0 0 2px rgba(239, 68, 68, 0.3)'
+    backgroundColor: colors.textMuted,
+    boxShadow: `0 0 0 3px ${colors.textMuted}20`
   },
   nav: {
-    background: 'white',
-    borderBottom: '1px solid #e5e7eb',
+    background: colors.surface,
+    borderBottom: `1px solid ${colors.borderLight}`,
     display: 'flex',
-    padding: '0 2rem',
-    gap: '0.5rem'
+    padding: '0 2.5rem',
+    gap: '2rem'
   },
   navButton: {
     background: 'none',
     border: 'none',
-    padding: '1rem 1.5rem',
+    padding: '1.125rem 0',
     cursor: 'pointer',
-    fontSize: '0.95rem',
-    color: '#6b7280',
+    fontSize: '0.9375rem',
+    color: colors.textSecondary,
     borderBottom: '2px solid transparent',
-    transition: 'all 0.3s ease'
+    transition: 'all 0.2s ease',
+    fontWeight: '500',
+    letterSpacing: '-0.01em'
   },
   navButtonActive: {
-    color: '#667eea',
-    borderBottomColor: '#667eea'
+    color: colors.primary,
+    borderBottomColor: colors.primary
   },
   content: {
     flex: 1,
-    padding: '2rem',
-    maxWidth: '1200px',
+    padding: '2.5rem',
+    maxWidth: '1120px',
     width: '100%',
-    margin: '0 auto'
+    margin: '0 auto',
+    animation: 'fadeIn 0.4s ease-out'
   },
   card: {
-    background: 'white',
-    borderRadius: '8px',
+    background: colors.surface,
+    borderRadius: '16px',
     padding: '2rem',
     marginBottom: '1.5rem',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+    border: `1px solid ${colors.borderLight}`,
+    boxShadow: '0 2px 8px rgba(45, 41, 38, 0.04)',
+    transition: 'all 0.2s ease'
   },
   cardTitle: {
     marginTop: 0,
-    marginBottom: '1.5rem',
-    color: '#1f2937'
+    marginBottom: '1.75rem',
+    color: colors.textPrimary,
+    fontSize: '1.25rem',
+    fontWeight: '500',
+    letterSpacing: '-0.02em'
   },
   statusRow: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '0.5rem 0'
+    padding: '0.875rem 0',
+    borderBottom: `1px solid ${colors.borderLight}`,
+    ':last-child': {
+      borderBottom: 'none'
+    }
   },
   button: {
     padding: '0.75rem 1.5rem',
     border: 'none',
-    borderRadius: '6px',
-    fontSize: '0.95rem',
+    borderRadius: '10px',
+    fontSize: '0.9375rem',
     cursor: 'pointer',
-    transition: 'all 0.3s ease'
+    transition: 'all 0.2s ease',
+    fontWeight: '500',
+    letterSpacing: '-0.01em'
   },
   primaryButton: {
-    background: '#667eea',
-    color: 'white'
+    background: colors.primary,
+    color: colors.surface,
+    boxShadow: '0 2px 8px rgba(139, 115, 85, 0.15)'
   },
   secondaryButton: {
-    background: '#e5e7eb',
-    color: '#374151'
+    background: colors.surfaceAlt,
+    color: colors.textPrimary,
+    border: `1px solid ${colors.borderLight}`
   },
   deleteButton: {
-    background: '#ef4444',
-    color: 'white',
-    padding: '0.5rem 1rem',
-    fontSize: '0.9rem'
+    background: colors.error,
+    color: colors.surface,
+    padding: '0.625rem 1.25rem',
+    fontSize: '0.875rem'
   },
   deleteButtonSmall: {
     background: 'transparent',
-    border: '1px solid #ef4444',
-    color: '#ef4444',
-    padding: '0.25rem 0.5rem',
-    fontSize: '0.8rem',
-    borderRadius: '4px',
+    border: `1px solid ${colors.error}40`,
+    color: colors.error,
+    padding: '0.375rem 0.75rem',
+    fontSize: '0.8125rem',
+    borderRadius: '8px',
     cursor: 'pointer',
     transition: 'all 0.2s ease'
   },
@@ -231,84 +292,102 @@ export const styles = {
     flexWrap: 'wrap'
   },
   eventItem: {
-    padding: '1rem',
-    background: '#f9fafb',
-    borderRadius: '6px',
-    borderLeft: '3px solid #667eea',
-    marginBottom: '1rem'
+    padding: '1.25rem',
+    background: colors.surfaceAlt,
+    borderRadius: '12px',
+    marginBottom: '1rem',
+    border: `1px solid ${colors.borderLight}`,
+    transition: 'all 0.2s ease'
   },
   eventItemHeader: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'flex-start'
   },
   eventCard: {
-    border: '1px solid #e5e7eb',
-    borderRadius: '6px',
-    padding: '1.5rem',
-    marginBottom: '1rem'
+    border: `1px solid ${colors.borderLight}`,
+    borderRadius: '12px',
+    padding: '1.75rem',
+    marginBottom: '1rem',
+    background: colors.surface,
+    transition: 'all 0.2s ease'
   },
   eventHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '1rem'
+    marginBottom: '1.25rem'
   },
   textarea: {
     width: '100%',
-    padding: '0.75rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
+    padding: '0.875rem 1rem',
+    border: `1px solid ${colors.borderLight}`,
+    borderRadius: '10px',
     fontFamily: 'inherit',
-    resize: 'vertical'
+    resize: 'vertical',
+    background: colors.surfaceAlt,
+    color: colors.textPrimary,
+    fontSize: '0.9375rem',
+    lineHeight: '1.6',
+    transition: 'all 0.2s ease',
+    outline: 'none'
   },
   input: {
     width: '100%',
-    padding: '0.5rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '1rem'
+    padding: '0.75rem 1rem',
+    border: `1px solid ${colors.borderLight}`,
+    borderRadius: '10px',
+    fontSize: '0.9375rem',
+    background: colors.surfaceAlt,
+    color: colors.textPrimary,
+    transition: 'all 0.2s ease',
+    outline: 'none'
   },
   select: {
     width: '100%',
-    padding: '0.5rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '1rem',
-    backgroundColor: 'white',
-    cursor: 'pointer'
+    padding: '0.75rem 1rem',
+    border: `1px solid ${colors.borderLight}`,
+    borderRadius: '10px',
+    fontSize: '0.9375rem',
+    backgroundColor: colors.surfaceAlt,
+    color: colors.textPrimary,
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    outline: 'none'
   },
   formGroup: {
-    marginBottom: '1rem'
+    marginBottom: '1.25rem'
   },
   formLabel: {
     display: 'block',
-    marginBottom: '0.5rem',
-    color: '#374151',
-    fontWeight: '500'
+    marginBottom: '0.625rem',
+    color: colors.textPrimary,
+    fontWeight: '500',
+    fontSize: '0.875rem',
+    letterSpacing: '-0.01em'
   },
   scheduler: {
     marginTop: '2rem',
-    padding: '1.5rem',
-    background: '#f9fafb',
-    borderRadius: '8px',
-    border: '1px solid #e5e7eb'
+    padding: '2rem',
+    background: colors.surfaceAlt,
+    borderRadius: '12px',
+    border: `1px solid ${colors.borderLight}`
   },
   formRow: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
-    gap: '1rem'
+    gap: '1.25rem'
   },
   formActions: {
     display: 'flex',
     gap: '1rem',
-    marginTop: '1.5rem'
+    marginTop: '1.75rem'
   },
   switch: {
     position: 'relative',
     display: 'inline-block',
-    width: '50px',
-    height: '24px'
+    width: '48px',
+    height: '26px'
   },
   slider: {
     position: 'absolute',
@@ -317,76 +396,83 @@ export const styles = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#ccc',
-    transition: '.4s',
-    borderRadius: '24px'
+    backgroundColor: colors.borderLight,
+    transition: '.3s',
+    borderRadius: '26px',
+    border: `1px solid ${colors.border}`
   },
   sliderBefore: {
     position: 'absolute',
     content: '""',
-    height: '16px',
-    width: '16px',
-    left: '4px',
-    bottom: '4px',
-    backgroundColor: 'white',
-    transition: '.4s',
-    borderRadius: '50%'
+    height: '18px',
+    width: '18px',
+    left: '3px',
+    bottom: '3px',
+    backgroundColor: colors.surface,
+    transition: '.3s',
+    borderRadius: '50%',
+    boxShadow: '0 2px 4px rgba(45, 41, 38, 0.1)'
   },
   logItem: {
     display: 'grid',
     gridTemplateColumns: '180px 150px 1fr',
-    gap: '1rem',
-    padding: '0.75rem',
-    borderBottom: '1px solid #f3f4f6',
-    fontSize: '0.9rem'
+    gap: '1.25rem',
+    padding: '1rem 0',
+    borderBottom: `1px solid ${colors.borderLight}`,
+    fontSize: '0.875rem',
+    color: colors.textSecondary
   },
   calendarSelect: {
-    marginBottom: '1.5rem',
-    padding: '1rem',
-    background: '#f3f4f6',
-    borderRadius: '6px'
+    marginBottom: '2rem',
+    padding: '1.5rem',
+    background: colors.surfaceAlt,
+    borderRadius: '12px',
+    border: `1px solid ${colors.borderLight}`
   },
   calendarOption: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
-    marginBottom: '0.25rem'
+    gap: '0.625rem',
+    marginBottom: '0.375rem'
   },
   calendarDot: {
-    width: '10px',
-    height: '10px',
+    width: '8px',
+    height: '8px',
     borderRadius: '50%',
     flexShrink: 0
   },
   wellnessNote: {
-    background: '#f3f4f6',
-    padding: '1rem',
-    borderRadius: '6px',
-    marginBottom: '1rem',
-    fontSize: '0.9rem',
-    color: '#6b7280',
-    fontStyle: 'italic'
+    background: `linear-gradient(135deg, ${colors.surfaceAlt}, ${colors.surface})`,
+    padding: '1.25rem 1.5rem',
+    borderRadius: '12px',
+    marginBottom: '1.5rem',
+    fontSize: '0.9375rem',
+    color: colors.textSecondary,
+    lineHeight: '1.6',
+    border: `1px solid ${colors.borderLight}`,
+    fontStyle: 'normal'
   },
   toastContainer: {
     position: 'fixed',
-    top: '20px',
-    right: '20px',
+    top: '24px',
+    right: '24px',
     zIndex: 1000
   },
   toastWrapper: {
-    marginBottom: '10px'
+    marginBottom: '12px'
   }
 };
 
 // Dynamic style helpers
 export const getSliderStyle = (isEnabled) => ({
   ...styles.slider,
-  backgroundColor: isEnabled ? '#667eea' : '#ccc'
+  backgroundColor: isEnabled ? colors.primary : colors.borderLight,
+  borderColor: isEnabled ? colors.primaryDark : colors.border
 });
 
 export const getSliderBeforeStyle = (isEnabled) => ({
   ...styles.sliderBefore,
-  transform: isEnabled ? 'translateX(26px)' : 'translateX(0)'
+  transform: isEnabled ? 'translateX(20px)' : 'translateX(0)'
 });
 
 export const getStatusDotStyle = (isActive) => ({
@@ -402,13 +488,28 @@ export const getNavButtonStyle = (isActive) => ({
 export const getButtonStyle = (base, modifier, disabled) => ({
   ...styles.button,
   ...base,
-  opacity: disabled ? 0.5 : 1,
+  opacity: disabled ? 0.6 : 1,
   cursor: disabled ? 'not-allowed' : 'pointer'
 });
 
 export const getLogActionColor = (action) => {
-  if (action.includes('enabled') || action.includes('toggle')) return '#10b981';
-  if (action.includes('disabled')) return '#ef4444';
-  if (action.includes('deleted')) return '#f59e0b';
-  return '#3b82f6';
+  if (action.includes('enabled') || action.includes('toggle')) return colors.success;
+  if (action.includes('disabled')) return colors.error;
+  if (action.includes('deleted')) return colors.warning;
+  return colors.info;
+};
+
+// Hover effects and focus states
+export const inputFocusStyle = {
+  borderColor: colors.primary,
+  boxShadow: `0 0 0 3px ${colors.primary}15`
+};
+
+export const buttonHoverStyle = {
+  transform: 'translateY(-1px)',
+  boxShadow: '0 4px 12px rgba(45, 41, 38, 0.08)'
+};
+
+export const cardHoverStyle = {
+  boxShadow: '0 4px 16px rgba(45, 41, 38, 0.06)'
 };

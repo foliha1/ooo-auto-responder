@@ -11,7 +11,9 @@ import {
   getStatusDotStyle,
   getNavButtonStyle,
   getButtonStyle,
-  getLogActionColor
+  getLogActionColor,
+  inputFocusStyle,
+  buttonHoverStyle
 } from './styles';
 
 // Toast notification component
@@ -33,13 +35,13 @@ const Toast = ({ message, type, onClose }) => {
 
   return (
     <div style={{ ...getToastStyles(isExiting), ...toastTypeStyles[type] }}>
-      <span style={{ fontSize: '22px', flexShrink: 0 }}>{toastIcons[type]}</span>
-      <span style={{ flex: 1, lineHeight: 1.4 }}>{message}</span>
+      <span style={{ fontSize: '20px', flexShrink: 0 }}>{toastIcons[type]}</span>
+      <span style={{ flex: 1, lineHeight: 1.5 }}>{message}</span>
       <button 
         onClick={handleClose}
         style={toastCloseButtonStyle}
-        onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.3)'}
-        onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
+        onMouseEnter={(e) => e.target.style.background = 'rgba(45, 41, 38, 0.05)'}
+        onMouseLeave={(e) => e.target.style.background = 'transparent'}
       >
         ×
       </button>
@@ -286,7 +288,7 @@ function App() {
       </div>
 
       <header style={styles.header}>
-        <h1 style={styles.headerTitle}>🌴 Your Boundary Guardian</h1>
+        <h1 style={styles.headerTitle}>🌿 Your Boundary Guardian</h1>
         <div style={styles.statusBadge}>
           <span style={getStatusDotStyle(status?.automationEnabled)}></span>
           Protection {status?.automationEnabled ? 'Active' : 'Paused'}
@@ -367,6 +369,8 @@ function App() {
                   style={getButtonStyle(styles.primaryButton, {}, status?.vacationResponder?.enabled)}
                   onClick={() => toggleResponder(true)}
                   disabled={status?.vacationResponder?.enabled}
+                  onMouseEnter={(e) => !status?.vacationResponder?.enabled && Object.assign(e.target.style, buttonHoverStyle)}
+                  onMouseLeave={(e) => !status?.vacationResponder?.enabled && (e.target.style.transform = 'translateY(0)', e.target.style.boxShadow = '0 2px 8px rgba(139, 115, 85, 0.15)')}
                 >
                   🛡️ Activate Protection
                 </button>
@@ -374,6 +378,8 @@ function App() {
                   style={getButtonStyle(styles.secondaryButton, {}, !status?.vacationResponder?.enabled)}
                   onClick={() => toggleResponder(false)}
                   disabled={!status?.vacationResponder?.enabled}
+                  onMouseEnter={(e) => status?.vacationResponder?.enabled && Object.assign(e.target.style, buttonHoverStyle)}
+                  onMouseLeave={(e) => status?.vacationResponder?.enabled && (e.target.style.transform = 'translateY(0)', e.target.style.boxShadow = 'none')}
                 >
                   🚪 Open My Inbox
                 </button>
@@ -383,6 +389,8 @@ function App() {
                     ...styles.primaryButton
                   }}
                   onClick={() => setShowScheduler(!showScheduler)}
+                  onMouseEnter={(e) => Object.assign(e.target.style, buttonHoverStyle)}
+                  onMouseLeave={(e) => (e.target.style.transform = 'translateY(0)', e.target.style.boxShadow = '0 2px 8px rgba(139, 115, 85, 0.15)')}
                 >
                   📅 Plan Sacred Time
                 </button>
