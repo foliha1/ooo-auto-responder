@@ -3,7 +3,7 @@
 // All functionality remains the same
 
 import React, { useState, useEffect } from 'react';
-import styles, { animationStyles } from './styles'; // styles split into external file
+import styles, { animationStyles } from './style'; // styles split into external file
 import Toast from './Toast'; // Assume Toast component also lives in its own file
 
 function App() {
