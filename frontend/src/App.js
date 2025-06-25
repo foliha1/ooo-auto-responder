@@ -49,6 +49,60 @@ const Toast = ({ message, type, onClose }) => {
   );
 };
 
+// Modal component
+const Modal = ({ isOpen, onClose, title, children }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000
+    }} onClick={onClose}>
+      <div style={{
+        background: styles.card.background,
+        borderRadius: styles.card.borderRadius,
+        padding: '2rem',
+        maxWidth: '500px',
+        width: '90%',
+        maxHeight: '80vh',
+        overflow: 'auto',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+      }} onClick={(e) => e.stopPropagation()}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '1.5rem'
+        }}>
+          <h2 style={{ margin: 0, color: styles.cardTitle.color }}>{title}</h2>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: styles.cardTitle.color,
+              padding: '0.5rem'
+            }}
+          >
+            ×
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+};
+
 function App() {
   const [status, setStatus] = useState(null);
   const [events, setEvents] = useState([]);
@@ -63,6 +117,10 @@ function App() {
   const [ptoBalance, setPtoBalance] = useState({ available: 0, used: 0, planned: 0 });
   const [holidays, setHolidays] = useState([]);
   const [ptoSuggestions, setPtoSuggestions] = useState([]);
+  const [showPTOModal, setShowPTOModal] = useState(false);
+  const [showHolidayModal, setShowHolidayModal] = useState(false);
+  const [showSuggestionConfirm, setShowSuggestionConfirm] = useState(false);
+  const [modalData, setModalData] = useState({});
   const [newEvent, setNewEvent] = useState({
     summary: 'Out of Office',
     startDate: '',
@@ -126,11 +184,31 @@ function App() {
       setSettings(settingsData);
       setLogs(logsData.logs || []);
       setLoading(false);
+      
+      // Update PTO planned count based on PTO events
+      updatePlannedPTO(eventsData.events || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       showToast('Oops! Having trouble connecting. We\'ll keep trying 💫', 'error');
       setLoading(false);
     }
+  };
+
+  const updatePlannedPTO = (events) => {
+    // Count PTO days from events
+    const ptoEvents = events.filter(event => 
+      event.summary && event.summary.toLowerCase().includes('pto')
+    );
+    
+    let ptoDaysCount = 0;
+    ptoEvents.forEach(event => {
+      const startDate = new Date(event.start.date || event.start.dateTime);
+      const endDate = new Date(event.end.date || event.end.dateTime);
+      const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+      ptoDaysCount += daysDiff || 1;
+    });
+    
+    setPtoBalance(prev => ({ ...prev, planned: ptoDaysCount }));
   };
 
   const fetchCalendars = async () => {
@@ -218,6 +296,15 @@ function App() {
           })
         });
       }
+      
+      // Update PTO balance
+      const newBalance = {
+        ...ptoBalance,
+        available: ptoBalance.available - suggestion.ptoDaysCount,
+        used: ptoBalance.used + suggestion.ptoDaysCount
+      };
+      await updatePTOBalance(newBalance);
+      
       showToast(`${suggestion.totalDaysOff} day break scheduled! Enjoy your time off 🌴`, 'success');
       fetchData();
       fetchPTOData();
@@ -334,13 +421,38 @@ function App() {
     }
 
     try {
+      // Check if this is a PTO event
+      const isPTOEvent = eventSummary.toLowerCase().includes('pto');
+      let ptoDaysToReturn = 0;
+      
+      if (isPTOEvent) {
+        // Find the event to calculate days
+        const event = events.find(e => e.id === eventId);
+        if (event) {
+          const startDate = new Date(event.start.date || event.start.dateTime);
+          const endDate = new Date(event.end.date || event.end.dateTime);
+          ptoDaysToReturn = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) || 1;
+        }
+      }
+      
       const response = await fetch(`${API_URL}/delete-event/${eventId}`, {
         method: 'DELETE'
       });
       
       if (response.ok) {
+        // Update PTO balance if it was a PTO event
+        if (isPTOEvent && ptoDaysToReturn > 0) {
+          const newBalance = {
+            ...ptoBalance,
+            available: ptoBalance.available + ptoDaysToReturn,
+            used: Math.max(0, ptoBalance.used - ptoDaysToReturn)
+          };
+          await updatePTOBalance(newBalance);
+        }
+        
         showToast('Event removed — your calendar is updated 📅', 'success');
         fetchData();
+        fetchPTOData();
       } else {
         const error = await response.json();
         showToast(`Couldn't delete that: ${error.error || 'Unknown error'}`, 'error');
@@ -661,6 +773,65 @@ function App() {
                 </div>
               )}
             </div>
+            
+            {/* Suggestion Confirmation Modal */}
+            <Modal
+              isOpen={showSuggestionConfirm}
+              onClose={() => setShowSuggestionConfirm(false)}
+              title="Schedule Time Off"
+            >
+              {modalData.suggestion && (
+                <div>
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <h3 style={{ margin: '0 0 0.5rem 0', color: styles.primary }}>
+                      {modalData.suggestion.title}
+                    </h3>
+                    <p style={{ margin: '0 0 1rem 0', color: '#6b7280' }}>
+                      {modalData.suggestion.description}
+                    </p>
+                    <div style={{
+                      background: styles.surfaceAlt,
+                      padding: '1rem',
+                      borderRadius: '8px',
+                      marginBottom: '1rem'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                        <span>Date Range:</span>
+                        <strong>{modalData.suggestion.dateRange}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                        <span>PTO Days Used:</span>
+                        <strong>{modalData.suggestion.ptoDaysCount} days</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Total Time Off:</span>
+                        <strong style={{ color: styles.success }}>{modalData.suggestion.totalDaysOff} days</strong>
+                      </div>
+                    </div>
+                    <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                      This will create {modalData.suggestion.ptoDaysCount} PTO event{modalData.suggestion.ptoDaysCount > 1 ? 's' : ''} in your calendar and update your PTO balance.
+                    </p>
+                  </div>
+                  <div style={styles.formActions}>
+                    <button
+                      style={{ ...styles.button, ...styles.primaryButton }}
+                      onClick={() => {
+                        applyPTOSuggestion(modalData.suggestion);
+                        setShowSuggestionConfirm(false);
+                      }}
+                    >
+                      Schedule It!
+                    </button>
+                    <button
+                      style={{ ...styles.button, ...styles.secondaryButton }}
+                      onClick={() => setShowSuggestionConfirm(false)}
+                    >
+                      Not Yet
+                    </button>
+                  </div>
+                </div>
+              )}
+            </Modal>
           </div>
         )}
 
@@ -811,16 +982,50 @@ function App() {
                     ...styles.secondaryButton
                   }}
                   onClick={() => {
-                    const available = prompt('How many PTO days do you have available?', ptoBalance.available);
-                    if (available !== null) {
-                      updatePTOBalance({ ...ptoBalance, available: parseInt(available) || 0 });
-                    }
+                    setModalData({ available: ptoBalance.available });
+                    setShowPTOModal(true);
                   }}
                 >
                   Update Balance
                 </button>
               </div>
             </div>
+
+            {/* PTO Balance Modal */}
+            <Modal
+              isOpen={showPTOModal}
+              onClose={() => setShowPTOModal(false)}
+              title="Update PTO Balance"
+            >
+              <div style={styles.formGroup}>
+                <label style={styles.formLabel}>Available PTO Days</label>
+                <input
+                  type="number"
+                  style={styles.input}
+                  value={modalData.available || 0}
+                  onChange={(e) => setModalData({ ...modalData, available: parseInt(e.target.value) || 0 })}
+                  min="0"
+                  max="365"
+                />
+              </div>
+              <div style={styles.formActions}>
+                <button
+                  style={{ ...styles.button, ...styles.primaryButton }}
+                  onClick={() => {
+                    updatePTOBalance({ ...ptoBalance, available: modalData.available });
+                    setShowPTOModal(false);
+                  }}
+                >
+                  Save
+                </button>
+                <button
+                  style={{ ...styles.button, ...styles.secondaryButton }}
+                  onClick={() => setShowPTOModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </Modal>
 
             {/* Smart Suggestions */}
             <div style={styles.card}>
@@ -840,9 +1045,8 @@ function App() {
                       key={i} 
                       style={styles.suggestionCard}
                       onClick={() => {
-                        if (window.confirm(`Schedule ${suggestion.ptoDaysCount} PTO days for a ${suggestion.totalDaysOff}-day break?`)) {
-                          applyPTOSuggestion(suggestion);
-                        }
+                        setModalData({ suggestion });
+                        setShowSuggestionConfirm(true);
                       }}
                       onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
                       onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
@@ -877,23 +1081,80 @@ function App() {
                     ...styles.primaryButton
                   }}
                   onClick={() => {
-                    const name = prompt('Holiday name:');
-                    if (name) {
-                      const date = prompt('Holiday date (YYYY-MM-DD):');
-                      if (date) {
-                        const observedDate = prompt('Observed date (YYYY-MM-DD) - press Enter if same as holiday date:', date);
-                        addHoliday({
-                          name,
-                          date,
-                          observedDate: observedDate || date
-                        });
-                      }
-                    }
+                    setModalData({
+                      name: '',
+                      date: '',
+                      observedDate: ''
+                    });
+                    setShowHolidayModal(true);
                   }}
                 >
                   Add Holiday
                 </button>
               </div>
+              
+              {/* Holiday Modal */}
+              <Modal
+                isOpen={showHolidayModal}
+                onClose={() => setShowHolidayModal(false)}
+                title="Add Company Holiday"
+              >
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>Holiday Name</label>
+                  <input
+                    type="text"
+                    style={styles.input}
+                    value={modalData.name || ''}
+                    onChange={(e) => setModalData({ ...modalData, name: e.target.value })}
+                    placeholder="e.g., Independence Day"
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>Holiday Date</label>
+                  <input
+                    type="date"
+                    style={styles.input}
+                    value={modalData.date || ''}
+                    onChange={(e) => setModalData({ ...modalData, date: e.target.value })}
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>Observed Date (if different)</label>
+                  <input
+                    type="date"
+                    style={styles.input}
+                    value={modalData.observedDate || modalData.date || ''}
+                    onChange={(e) => setModalData({ ...modalData, observedDate: e.target.value })}
+                  />
+                  <small style={{ color: '#6b7280', display: 'block', marginTop: '0.25rem' }}>
+                    Leave empty if observed on the same date
+                  </small>
+                </div>
+                <div style={styles.formActions}>
+                  <button
+                    style={{ ...styles.button, ...styles.primaryButton }}
+                    onClick={() => {
+                      if (modalData.name && modalData.date) {
+                        addHoliday({
+                          name: modalData.name,
+                          date: modalData.date,
+                          observedDate: modalData.observedDate || modalData.date
+                        });
+                        setShowHolidayModal(false);
+                      }
+                    }}
+                    disabled={!modalData.name || !modalData.date}
+                  >
+                    Add Holiday
+                  </button>
+                  <button
+                    style={{ ...styles.button, ...styles.secondaryButton }}
+                    onClick={() => setShowHolidayModal(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </Modal>
               
               {holidays.length === 0 ? (
                 <p style={{ color: '#6b7280', fontStyle: 'italic' }}>
