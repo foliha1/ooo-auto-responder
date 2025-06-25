@@ -24,6 +24,7 @@ const TOKEN_PATH = path.join(__dirname, 'token.json');
 const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
 const SETTINGS_PATH = path.join(__dirname, 'settings.json');
 const LOGS_PATH = path.join(__dirname, 'logs.json');
+const PTO_DATA_PATH = path.join(__dirname, 'pto-data.json');
 
 // Track automation status
 let automationEnabled = true;
@@ -93,6 +94,69 @@ async function addLog(entry) {
   logs = logs.slice(0, 50);
   
   await fs.writeFile(LOGS_PATH, JSON.stringify(logs, null, 2));
+}
+
+// ===== PTO DATA STORAGE FUNCTIONS =====
+async function loadPTOData() {
+  try {
+    const data = await fs.readFile(PTO_DATA_PATH, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    // File doesn't exist, return defaults with pre-populated holidays
+    const currentYear = new Date().getFullYear();
+    const nextYear = currentYear + 1;
+    
+    const defaults = {
+      ptoBalance: { available: 15, used: 0, planned: 0 },
+      holidays: [
+        { id: 'h1', name: "New Year's Day", date: `${nextYear}-01-01`, observedDate: `${nextYear}-01-01` },
+        { id: 'h2', name: 'Martin Luther King Jr. Day', date: `${nextYear}-01-20`, observedDate: `${nextYear}-01-20` },
+        { id: 'h3', name: "Presidents' Day", date: `${nextYear}-02-17`, observedDate: `${nextYear}-02-17` },
+        { id: 'h4', name: 'Memorial Day', date: `${nextYear}-05-26`, observedDate: `${nextYear}-05-26` },
+        { id: 'h5', name: 'Independence Day', date: `${nextYear}-07-04`, observedDate: `${nextYear}-07-04` },
+        { id: 'h6', name: 'Labor Day', date: `${nextYear}-09-01`, observedDate: `${nextYear}-09-01` },
+        { id: 'h7', name: 'Thanksgiving', date: `${nextYear}-11-27`, observedDate: `${nextYear}-11-27` },
+        { id: 'h8', name: 'Day After Thanksgiving', date: `${nextYear}-11-28`, observedDate: `${nextYear}-11-28` },
+        { id: 'h9', name: 'Christmas Eve', date: `${nextYear}-12-24`, observedDate: `${nextYear}-12-24` },
+        { id: 'h10', name: 'Christmas', date: `${nextYear}-12-25`, observedDate: `${nextYear}-12-25` }
+      ]
+    };
+    
+    await savePTOData(defaults);
+    return defaults;
+  }
+}
+
+async function savePTOData(data) {
+  await fs.writeFile(PTO_DATA_PATH, JSON.stringify(data, null, 2));
+}
+
+async function getPTOBalance() {
+  const data = await loadPTOData();
+  return data.ptoBalance;
+}
+
+async function savePTOBalance(balance) {
+  const data = await loadPTOData();
+  data.ptoBalance = balance;
+  await savePTOData(data);
+}
+
+async function getHolidays() {
+  const data = await loadPTOData();
+  return data.holidays;
+}
+
+async function addHoliday(holiday) {
+  const data = await loadPTOData();
+  data.holidays.push(holiday);
+  await savePTOData(data);
+}
+
+async function deleteHoliday(id) {
+  const data = await loadPTOData();
+  data.holidays = data.holidays.filter(h => h.id !== id);
+  await savePTOData(data);
 }
 
 // API Routes
@@ -361,6 +425,301 @@ app.delete('/api/delete-event/:eventId', async (req, res) => {
     }
   }
 });
+
+// ===== PTO BALANCE ENDPOINTS =====
+
+// Get PTO balance
+app.get('/api/pto-balance', async (req, res) => {
+  try {
+    const balance = await getPTOBalance();
+    res.json(balance);
+  } catch (error) {
+    console.error('Error fetching PTO balance:', error);
+    res.status(500).json({ error: 'Failed to fetch PTO balance' });
+  }
+});
+
+// Update PTO balance
+app.post('/api/pto-balance', async (req, res) => {
+  try {
+    const { available, used, planned } = req.body;
+    await savePTOBalance({ available, used, planned });
+    
+    await addLog({
+      action: 'pto_balance_updated',
+      details: `PTO balance updated: ${available} days available`
+    });
+    
+    res.json({ available, used, planned });
+  } catch (error) {
+    console.error('Error updating PTO balance:', error);
+    res.status(500).json({ error: 'Failed to update PTO balance' });
+  }
+});
+
+// ===== HOLIDAY ENDPOINTS =====
+
+// Get all holidays
+app.get('/api/holidays', async (req, res) => {
+  try {
+    const holidays = await getHolidays();
+    res.json({ holidays });
+  } catch (error) {
+    console.error('Error fetching holidays:', error);
+    res.status(500).json({ error: 'Failed to fetch holidays' });
+  }
+});
+
+// Add a new holiday
+app.post('/api/holidays', async (req, res) => {
+  try {
+    const { name, date, observedDate } = req.body;
+    
+    const newHoliday = {
+      id: `holiday-${Date.now()}`,
+      name,
+      date,
+      observedDate: observedDate || date
+    };
+    
+    await addHoliday(newHoliday);
+    
+    await addLog({
+      action: 'holiday_added',
+      details: `Added holiday: ${name}`
+    });
+    
+    res.json(newHoliday);
+  } catch (error) {
+    console.error('Error adding holiday:', error);
+    res.status(500).json({ error: 'Failed to add holiday' });
+  }
+});
+
+// Delete a holiday
+app.delete('/api/holidays/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await deleteHoliday(id);
+    
+    await addLog({
+      action: 'holiday_deleted',
+      details: `Deleted holiday`
+    });
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting holiday:', error);
+    res.status(500).json({ error: 'Failed to delete holiday' });
+  }
+});
+
+// ===== SMART PTO SUGGESTIONS ENDPOINT =====
+
+app.get('/api/pto-suggestions', async (req, res) => {
+  try {
+    const holidays = await getHolidays();
+    const ptoBalance = await getPTOBalance();
+    
+    const suggestions = generatePTOSuggestions(holidays, ptoBalance);
+    
+    res.json({ suggestions });
+  } catch (error) {
+    console.error('Error generating PTO suggestions:', error);
+    res.status(500).json({ error: 'Failed to generate suggestions' });
+  }
+});
+
+// ===== PTO SUGGESTION HELPER FUNCTIONS =====
+
+// Generate smart PTO suggestions based on holidays
+function generatePTOSuggestions(holidays, ptoBalance) {
+  const suggestions = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  holidays.forEach(holiday => {
+    const holidayDate = new Date(holiday.observedDate);
+    const dayOfWeek = holidayDate.getDay(); // 0 = Sunday, 6 = Saturday
+    
+    // Skip if holiday is in the past
+    if (holidayDate < today) return;
+    
+    // Case 1: Holiday on Thursday (day 4) - suggest Friday off
+    if (dayOfWeek === 4) {
+      const friday = new Date(holidayDate);
+      friday.setDate(friday.getDate() + 1);
+      
+      suggestions.push({
+        title: `${holiday.name} Extended Weekend`,
+        dateRange: formatDateRange(holidayDate, 4),
+        ptoDays: [formatDate(friday)],
+        ptoDaysCount: 1,
+        totalDaysOff: 4,
+        description: `Take Friday off after ${holiday.name} for a 4-day weekend`,
+        returnDate: formatReturnDate(holidayDate, 4)
+      });
+    }
+    
+    // Case 2: Holiday on Tuesday (day 2) - suggest Monday off
+    if (dayOfWeek === 2) {
+      const monday = new Date(holidayDate);
+      monday.setDate(monday.getDate() - 1);
+      
+      suggestions.push({
+        title: `${holiday.name} Extended Weekend`,
+        dateRange: formatDateRange(monday, 4),
+        ptoDays: [formatDate(monday)],
+        ptoDaysCount: 1,
+        totalDaysOff: 4,
+        description: `Take Monday off before ${holiday.name} for a 4-day weekend`,
+        returnDate: formatReturnDate(holidayDate, 1)
+      });
+    }
+    
+    // Case 3: Holiday on Wednesday - suggest full week off
+    if (dayOfWeek === 3) {
+      const monday = new Date(holidayDate);
+      monday.setDate(monday.getDate() - 2);
+      const tuesday = new Date(holidayDate);
+      tuesday.setDate(tuesday.getDate() - 1);
+      const thursday = new Date(holidayDate);
+      thursday.setDate(thursday.getDate() + 1);
+      const friday = new Date(holidayDate);
+      friday.setDate(friday.getDate() + 2);
+      
+      suggestions.push({
+        title: `${holiday.name} Full Week`,
+        dateRange: formatDateRange(monday, 9),
+        ptoDays: [formatDate(monday), formatDate(tuesday), formatDate(thursday), formatDate(friday)],
+        ptoDaysCount: 4,
+        totalDaysOff: 9,
+        description: `Take the full week around ${holiday.name} for a 9-day break`,
+        returnDate: formatReturnDate(monday, 9)
+      });
+    }
+    
+    // Case 4: Holiday on Monday or Friday - already creates long weekend
+    if (dayOfWeek === 1 || dayOfWeek === 5) {
+      if (dayOfWeek === 5) { // Friday
+        const thursday = new Date(holidayDate);
+        thursday.setDate(thursday.getDate() - 1);
+        
+        suggestions.push({
+          title: `${holiday.name} Extended Weekend`,
+          dateRange: formatDateRange(thursday, 4),
+          ptoDays: [formatDate(thursday)],
+          ptoDaysCount: 1,
+          totalDaysOff: 4,
+          description: `Take Thursday off before ${holiday.name} for a 4-day weekend`,
+          returnDate: formatReturnDate(holidayDate, 3)
+        });
+      }
+      
+      if (dayOfWeek === 1) { // Monday
+        const tuesday = new Date(holidayDate);
+        tuesday.setDate(tuesday.getDate() + 1);
+        
+        suggestions.push({
+          title: `${holiday.name} Extended Break`,
+          dateRange: formatDateRange(holidayDate, 4),
+          ptoDays: [formatDate(tuesday)],
+          ptoDaysCount: 1,
+          totalDaysOff: 4,
+          description: `Take Tuesday off after ${holiday.name} for a 4-day weekend`,
+          returnDate: formatReturnDate(tuesday, 1)
+        });
+      }
+    }
+  });
+  
+  // Look for holiday clusters (e.g., Thanksgiving week, Christmas/New Year)
+  const thanksgivingHoliday = holidays.find(h => h.name.toLowerCase().includes('thanksgiving') && !h.name.toLowerCase().includes('after'));
+  if (thanksgivingHoliday) {
+    const thanksgivingDate = new Date(thanksgivingHoliday.observedDate);
+    const monday = new Date(thanksgivingDate);
+    monday.setDate(monday.getDate() - 3);
+    const tuesday = new Date(thanksgivingDate);
+    tuesday.setDate(tuesday.getDate() - 2);
+    const wednesday = new Date(thanksgivingDate);
+    wednesday.setDate(wednesday.getDate() - 1);
+    const friday = new Date(thanksgivingDate);
+    friday.setDate(friday.getDate() + 1);
+    
+    // Check if Friday after Thanksgiving is also a holiday
+    const dayAfterThanksgiving = holidays.find(h => 
+      h.name.toLowerCase().includes('after thanksgiving') || 
+      formatDate(new Date(h.observedDate)) === formatDate(friday)
+    );
+    
+    if (dayAfterThanksgiving) {
+      // Only need Mon-Wed off
+      suggestions.push({
+        title: 'Thanksgiving Week Off',
+        dateRange: formatDateRange(monday, 9),
+        ptoDays: [formatDate(monday), formatDate(tuesday), formatDate(wednesday)],
+        ptoDaysCount: 3,
+        totalDaysOff: 9,
+        description: 'Take 3 days for a full week off around Thanksgiving',
+        returnDate: formatReturnDate(monday, 9)
+      });
+    } else {
+      // Need Mon-Wed + Friday
+      suggestions.push({
+        title: 'Thanksgiving Week Off',
+        dateRange: formatDateRange(monday, 9),
+        ptoDays: [formatDate(monday), formatDate(tuesday), formatDate(wednesday), formatDate(friday)],
+        ptoDaysCount: 4,
+        totalDaysOff: 9,
+        description: 'Take 4 days for a full week off around Thanksgiving',
+        returnDate: formatReturnDate(monday, 9)
+      });
+    }
+  }
+  
+  // Filter suggestions based on available PTO and remove duplicates
+  const uniqueSuggestions = suggestions
+    .filter(s => s.ptoDaysCount <= ptoBalance.available)
+    .filter((suggestion, index, self) => 
+      index === self.findIndex(s => s.title === suggestion.title)
+    )
+    .sort((a, b) => {
+      // Sort by efficiency (days off per PTO day used)
+      const efficiencyA = a.totalDaysOff / a.ptoDaysCount;
+      const efficiencyB = b.totalDaysOff / b.ptoDaysCount;
+      return efficiencyB - efficiencyA;
+    });
+  
+  return uniqueSuggestions;
+}
+
+// Helper function to format date as YYYY-MM-DD
+function formatDate(date) {
+  return date.toISOString().split('T')[0];
+}
+
+// Helper function to format date range
+function formatDateRange(startDate, daysOff) {
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + daysOff - 1);
+  
+  const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  
+  return `${startStr} - ${endStr}`;
+}
+
+// Helper function to format return date
+function formatReturnDate(startDate, daysOff) {
+  const returnDate = new Date(startDate);
+  returnDate.setDate(returnDate.getDate() + daysOff);
+  
+  // Skip to Monday if return date is weekend
+  if (returnDate.getDay() === 0) returnDate.setDate(returnDate.getDate() + 1);
+  if (returnDate.getDay() === 6) returnDate.setDate(returnDate.getDate() + 2);
+  
+  return formatDate(returnDate);
+}
 
 // Check if user is currently out of office
 async function checkOutOfOffice(auth) {

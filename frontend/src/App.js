@@ -60,6 +60,9 @@ function App() {
   const [showScheduler, setShowScheduler] = useState(false);
   const [calendars, setCalendars] = useState([]);
   const [toasts, setToasts] = useState([]);
+  const [ptoBalance, setPtoBalance] = useState({ available: 0, used: 0, planned: 0 });
+  const [holidays, setHolidays] = useState([]);
+  const [ptoSuggestions, setPtoSuggestions] = useState([]);
   const [newEvent, setNewEvent] = useState({
     summary: 'Out of Office',
     startDate: '',
@@ -99,6 +102,7 @@ function App() {
   useEffect(() => {
     fetchData();
     fetchCalendars();
+    fetchPTOData();
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -136,6 +140,90 @@ function App() {
       setCalendars(data.calendars || []);
     } catch (error) {
       console.error('Error fetching calendars:', error);
+    }
+  };
+
+  const fetchPTOData = async () => {
+    try {
+      // Fetch PTO balance
+      const balanceRes = await fetch(`${API_URL}/pto-balance`);
+      if (balanceRes.ok) {
+        const balanceData = await balanceRes.json();
+        setPtoBalance(balanceData);
+      }
+
+      // Fetch holidays
+      const holidaysRes = await fetch(`${API_URL}/holidays`);
+      if (holidaysRes.ok) {
+        const holidaysData = await holidaysRes.json();
+        setHolidays(holidaysData.holidays || []);
+      }
+
+      // Fetch PTO suggestions
+      const suggestionsRes = await fetch(`${API_URL}/pto-suggestions`);
+      if (suggestionsRes.ok) {
+        const suggestionsData = await suggestionsRes.json();
+        setPtoSuggestions(suggestionsData.suggestions || []);
+      }
+    } catch (error) {
+      console.error('Error fetching PTO data:', error);
+    }
+  };
+
+  const updatePTOBalance = async (newBalance) => {
+    try {
+      await fetch(`${API_URL}/pto-balance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newBalance)
+      });
+      setPtoBalance(newBalance);
+      showToast('PTO balance updated ✨', 'success');
+      fetchPTOData(); // Refresh suggestions
+    } catch (error) {
+      console.error('Error updating PTO balance:', error);
+      showToast('Couldn\'t update PTO balance. Let\'s try again 🔄', 'error');
+    }
+  };
+
+  const addHoliday = async (holiday) => {
+    try {
+      await fetch(`${API_URL}/holidays`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(holiday)
+      });
+      showToast('Holiday added to your calendar 🎉', 'success');
+      fetchPTOData();
+    } catch (error) {
+      console.error('Error adding holiday:', error);
+      showToast('Couldn\'t add that holiday. Let\'s try again 🔄', 'error');
+    }
+  };
+
+  const applyPTOSuggestion = async (suggestion) => {
+    try {
+      // Create events for each PTO day in the suggestion
+      for (const ptoDay of suggestion.ptoDays) {
+        await fetch(`${API_URL}/create-event`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            summary: 'PTO - Extended Weekend',
+            startDate: ptoDay,
+            endDate: ptoDay,
+            allDay: true,
+            tone: 'professional',
+            customMessage: `Taking a well-deserved break! I'll be back refreshed on ${suggestion.returnDate}.`
+          })
+        });
+      }
+      showToast(`${suggestion.totalDaysOff} day break scheduled! Enjoy your time off 🌴`, 'success');
+      fetchData();
+      fetchPTOData();
+    } catch (error) {
+      console.error('Error applying PTO suggestion:', error);
+      showToast('Couldn\'t schedule that time off. Let\'s try again 🔄', 'error');
     }
   };
 
@@ -313,6 +401,12 @@ function App() {
           onClick={() => setActiveTab('settings')}
         >
           Preferences
+        </button>
+        <button 
+          style={getNavButtonStyle(activeTab === 'pto')}
+          onClick={() => setActiveTab('pto')}
+        >
+          Smart PTO
         </button>
         <button 
           style={getNavButtonStyle(activeTab === 'logs')}
@@ -684,6 +778,164 @@ function App() {
                   <small style={{ color: '#6b7280' }}>Use {'{date}'} to automatically insert your return date</small>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'pto' && (
+          <div>
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>🌟 Smart PTO Planner</h2>
+              
+              {/* PTO Balance Section */}
+              <div style={styles.ptoBalance}>
+                <div style={styles.ptoBalanceItem}>
+                  <div style={styles.ptoBalanceLabel}>Available Days</div>
+                  <div style={styles.ptoBalanceValue}>{ptoBalance.available}</div>
+                </div>
+                <div style={styles.ptoBalanceItem}>
+                  <div style={styles.ptoBalanceLabel}>Used Days</div>
+                  <div style={styles.ptoBalanceValue}>{ptoBalance.used}</div>
+                </div>
+                <div style={styles.ptoBalanceItem}>
+                  <div style={styles.ptoBalanceLabel}>Planned Days</div>
+                  <div style={styles.ptoBalanceValue}>{ptoBalance.planned}</div>
+                </div>
+              </div>
+
+              {/* Update PTO Balance */}
+              <div style={{ marginBottom: '2rem' }}>
+                <button 
+                  style={{
+                    ...styles.button,
+                    ...styles.secondaryButton
+                  }}
+                  onClick={() => {
+                    const available = prompt('How many PTO days do you have available?', ptoBalance.available);
+                    if (available !== null) {
+                      updatePTOBalance({ ...ptoBalance, available: parseInt(available) || 0 });
+                    }
+                  }}
+                >
+                  Update Balance
+                </button>
+              </div>
+            </div>
+
+            {/* Smart Suggestions */}
+            <div style={styles.card}>
+              <h3 style={styles.cardTitle}>✨ Optimized Time Off Suggestions</h3>
+              <div style={styles.wellnessNote}>
+                🧮 These suggestions maximize your time off by strategically using PTO days around holidays and weekends.
+              </div>
+              
+              {ptoSuggestions.length === 0 ? (
+                <p style={{ color: '#6b7280', fontStyle: 'italic' }}>
+                  Add some holidays below to get smart PTO suggestions!
+                </p>
+              ) : (
+                <div>
+                  {ptoSuggestions.map((suggestion, i) => (
+                    <div 
+                      key={i} 
+                      style={styles.suggestionCard}
+                      onClick={() => {
+                        if (window.confirm(`Schedule ${suggestion.ptoDaysCount} PTO days for a ${suggestion.totalDaysOff}-day break?`)) {
+                          applyPTOSuggestion(suggestion);
+                        }
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                    >
+                      <div style={styles.suggestionHeader}>
+                        <div>
+                          <div style={styles.suggestionTitle}>{suggestion.title}</div>
+                          <div style={styles.suggestionDays}>
+                            {suggestion.dateRange} • Use {suggestion.ptoDaysCount} PTO day{suggestion.ptoDaysCount > 1 ? 's' : ''}
+                          </div>
+                        </div>
+                        <div style={styles.suggestionBadge}>
+                          {suggestion.totalDaysOff} days off
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem' }}>
+                        {suggestion.description}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Holiday Management */}
+            <div style={styles.card}>
+              <div style={styles.ptoHeader}>
+                <h3 style={{ margin: 0 }}>📅 Company Holidays</h3>
+                <button 
+                  style={{
+                    ...styles.button,
+                    ...styles.primaryButton
+                  }}
+                  onClick={() => {
+                    const name = prompt('Holiday name:');
+                    if (name) {
+                      const date = prompt('Holiday date (YYYY-MM-DD):');
+                      if (date) {
+                        const observedDate = prompt('Observed date (YYYY-MM-DD) - press Enter if same as holiday date:', date);
+                        addHoliday({
+                          name,
+                          date,
+                          observedDate: observedDate || date
+                        });
+                      }
+                    }
+                  }}
+                >
+                  Add Holiday
+                </button>
+              </div>
+              
+              {holidays.length === 0 ? (
+                <p style={{ color: '#6b7280', fontStyle: 'italic' }}>
+                  No holidays added yet. Add your company holidays to get smart PTO suggestions!
+                </p>
+              ) : (
+                <div style={styles.holidayList}>
+                  {holidays.map((holiday, i) => (
+                    <div key={i} style={styles.holidayItem}>
+                      <div>
+                        <div style={{ fontWeight: '500' }}>{holiday.name}</div>
+                        <div style={styles.holidayDates}>
+                          <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                            Holiday: {new Date(holiday.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          </span>
+                          {holiday.observedDate !== holiday.date && (
+                            <span style={{ fontSize: '0.875rem', color: '#8b7355' }}>
+                              Observed: {new Date(holiday.observedDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button 
+                        style={styles.deleteButtonSmall}
+                        onClick={async () => {
+                          if (window.confirm(`Remove ${holiday.name}?`)) {
+                            try {
+                              await fetch(`${API_URL}/holidays/${holiday.id}`, { method: 'DELETE' });
+                              showToast('Holiday removed 📅', 'success');
+                              fetchPTOData();
+                            } catch (error) {
+                              showToast('Couldn\'t remove holiday 🔄', 'error');
+                            }
+                          }
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

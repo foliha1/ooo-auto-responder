@@ -460,6 +460,132 @@ export const styles = {
   },
   toastWrapper: {
     marginBottom: '12px'
+  },
+  // PTO Planner styles
+  ptoCard: {
+    background: colors.surface,
+    borderRadius: '16px',
+    padding: '1.5rem',
+    marginBottom: '1rem',
+    border: `1px solid ${colors.borderLight}`,
+    boxShadow: '0 2px 8px rgba(45, 41, 38, 0.04)'
+  },
+  ptoHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '1.5rem'
+  },
+  ptoBalance: {
+    display: 'flex',
+    gap: '2rem',
+    marginBottom: '1.5rem',
+    padding: '1.25rem',
+    background: colors.surfaceAlt,
+    borderRadius: '12px',
+    border: `1px solid ${colors.borderLight}`
+  },
+  ptoBalanceItem: {
+    flex: 1,
+    textAlign: 'center'
+  },
+  ptoBalanceLabel: {
+    fontSize: '0.875rem',
+    color: colors.textSecondary,
+    marginBottom: '0.5rem'
+  },
+  ptoBalanceValue: {
+    fontSize: '1.75rem',
+    fontWeight: '500',
+    color: colors.primary
+  },
+  holidayList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem'
+  },
+  holidayItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '1rem',
+    background: colors.surfaceAlt,
+    borderRadius: '10px',
+    border: `1px solid ${colors.borderLight}`,
+    transition: 'all 0.2s ease'
+  },
+  holidayDates: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.25rem'
+  },
+  suggestionCard: {
+    padding: '1.25rem',
+    background: `linear-gradient(135deg, ${colors.success}10, ${colors.surface})`,
+    borderRadius: '12px',
+    border: `1px solid ${colors.success}30`,
+    marginBottom: '1rem',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease'
+  },
+  suggestionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '0.75rem'
+  },
+  suggestionTitle: {
+    fontWeight: '500',
+    color: colors.textPrimary,
+    marginBottom: '0.25rem'
+  },
+  suggestionDays: {
+    fontSize: '0.875rem',
+    color: colors.textSecondary
+  },
+  suggestionBadge: {
+    padding: '0.25rem 0.75rem',
+    background: colors.success,
+    color: colors.surface,
+    borderRadius: '16px',
+    fontSize: '0.75rem',
+    fontWeight: '500'
+  },
+  calendarGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, 1fr)',
+    gap: '0.5rem',
+    marginTop: '1rem'
+  },
+  calendarDay: {
+    aspectRatio: '1',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '8px',
+    fontSize: '0.875rem',
+    fontWeight: '400',
+    cursor: 'default',
+    transition: 'all 0.2s ease'
+  },
+  calendarDayWeekend: {
+    background: colors.surfaceAlt,
+    color: colors.textSecondary
+  },
+  calendarDayHoliday: {
+    background: colors.primary,
+    color: colors.surface,
+    fontWeight: '500'
+  },
+  calendarDayPTO: {
+    background: colors.success,
+    color: colors.surface,
+    fontWeight: '500'
+  },
+  calendarDayBridge: {
+    background: `${colors.warning}20`,
+    border: `2px dashed ${colors.warning}`,
+    color: colors.textPrimary
   }
 };
 
