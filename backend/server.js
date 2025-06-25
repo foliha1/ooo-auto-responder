@@ -17,6 +17,27 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
+// Debug endpoint
+app.get('/api/debug', async (req, res) => {
+  try {
+    const hasToken = !!process.env.GOOGLE_TOKEN || await fs.access(TOKEN_PATH).then(() => true).catch(() => false);
+    const hasCredentials = await fs.access(CREDENTIALS_PATH).then(() => true).catch(() => false);
+    
+    res.json({
+      status: 'debug info',
+      environment: process.env.NODE_ENV || 'development',
+      port: PORT,
+      hasGoogleToken: hasToken,
+      hasCredentialsFile: hasCredentials,
+      tokenPath: TOKEN_PATH,
+      credentialsPath: CREDENTIALS_PATH,
+      currentDirectory: process.cwd()
+    });
+  } catch (error) {
+    res.json({ error: error.message });
+  }
+});
+
 // Define the permissions we need
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
@@ -38,21 +59,37 @@ let lastStatus = null;
 // Load saved credentials
 async function loadSavedCredentialsIfExist() {
   try {
+    // First check if we have token in environment variable (for Render)
+    if (process.env.GOOGLE_TOKEN) {
+      console.log('Loading credentials from environment variable');
+      const credentials = JSON.parse(process.env.GOOGLE_TOKEN);
+      return google.auth.fromJSON(credentials);
+    }
+    
+    // Otherwise try to load from file (for local development)
+    console.log('Looking for token at:', TOKEN_PATH);
     const content = await fs.readFile(TOKEN_PATH);
     const credentials = JSON.parse(content);
+    console.log('Successfully loaded credentials from file');
     return google.auth.fromJSON(credentials);
   } catch (err) {
+    console.error('Failed to load credentials:', err.message);
     return null;
   }
 }
 
 // Get authenticated client
 async function authorize() {
-  let client = await loadSavedCredentialsIfExist();
-  if (client) {
-    return client;
+  try {
+    let client = await loadSavedCredentialsIfExist();
+    if (client) {
+      return client;
+    }
+    throw new Error('No saved credentials found. Please run locally first to authenticate.');
+  } catch (error) {
+    console.error('Authorization error:', error.message);
+    throw error;
   }
-  throw new Error('No saved credentials found. Please run locally first to authenticate.');
 }
 
 // Load settings
@@ -215,6 +252,9 @@ app.get('/api/events', async (req, res) => {
     const startOfYear = new Date(currentYear, 0, 1);
     const endOfYear = new Date(currentYear, 11, 31);
     
+    console.log('Fetching events from:', startOfYear.toISOString(), 'to:', endOfYear.toISOString());
+    console.log('Using calendar:', settings.selectedCalendarId || 'primary');
+    
     const response = await calendar.events.list({
       calendarId: settings.selectedCalendarId || 'primary',
       timeMin: startOfYear.toISOString(),
@@ -222,6 +262,8 @@ app.get('/api/events', async (req, res) => {
       singleEvents: true,
       orderBy: 'startTime',
     });
+    
+    console.log(`Found ${response.data.items.length} total events`);
     
     // Filter for OOO events and include IDs
     const oooEvents = response.data.items
@@ -243,8 +285,11 @@ app.get('/api/events', async (req, res) => {
         location: event.location
       }));
     
+    console.log(`Filtered to ${oooEvents.length} OOO/PTO events`);
+    
     res.json({ events: oooEvents });
   } catch (error) {
+    console.error('Error fetching events:', error);
     res.status(500).json({ error: error.message });
   }
 });
