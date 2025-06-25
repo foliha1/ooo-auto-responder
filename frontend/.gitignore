@@ -1,0 +1,57 @@
+<<<<<<< HEAD
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Sensitive files - NEVER commit these
+backend/credentials.json
+backend/token.json
+credentials.json
+token.json
+*.json
+
+# Keep package.json files
+!package.json
+!package-lock.json
+!*/package.json
+!*/package-lock.json
+
+# Generated files
+backend/settings.json
+backend/logs.json
+
+# OS files
+.DS_Store
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+=======
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# production
+/build
+
+# misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.vercel
+>>>>>>> 4b2326f (Add or update React frontend)
