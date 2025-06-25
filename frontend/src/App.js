@@ -64,23 +64,27 @@ const Modal = ({ isOpen, onClose, title, children }) => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 1000
+      zIndex: 1000,
+      padding: '1rem'
     }} onClick={onClose}>
       <div style={{
         ...styles.card,
         maxWidth: '500px',
-        width: '90%',
-        maxHeight: '80vh',
-        overflow: 'auto',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+        width: '100%',
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+        margin: '0 auto'
       }} onClick={(e) => e.stopPropagation()}>
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '1.5rem'
+          marginBottom: '1.5rem',
+          paddingBottom: '1rem',
+          borderBottom: '1px solid rgba(45, 41, 38, 0.08)'
         }}>
-          <h2 style={styles.cardTitle}>{title}</h2>
+          <h2 style={{ ...styles.cardTitle, marginBottom: 0 }}>{title}</h2>
           <button
             onClick={onClose}
             style={{
@@ -88,9 +92,13 @@ const Modal = ({ isOpen, onClose, title, children }) => {
               border: 'none',
               fontSize: '24px',
               cursor: 'pointer',
-              color: styles.cardTitle.color,
-              padding: '0.5rem'
+              color: '#6b6460',
+              padding: '0.5rem',
+              borderRadius: '8px',
+              transition: 'all 0.2s ease'
             }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(45, 41, 38, 0.05)'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
           >
             ×
           </button>
@@ -472,6 +480,18 @@ function App() {
             used: Math.max(0, ptoBalance.used - ptoDaysToReturn)
           };
           await updatePTOBalance(newBalance);
+        }
+        
+        // Remove from applied suggestions if it was a Smart PTO event
+        if (eventSummary.includes('PTO - Extended Weekend')) {
+          // Find which suggestion this might have been
+          ptoSuggestions.forEach(suggestion => {
+            setAppliedSuggestions(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(suggestion.title);
+              return newSet;
+            });
+          });
         }
         
         showToast('Event removed — your calendar is updated 📅', 'success');
@@ -888,7 +908,7 @@ function App() {
               <div style={{ marginBottom: '2rem' }}>
                 <h3>Default Message Tone</h3>
                 <select 
-                  style={{ ...styles.select, width: '200px' }}
+                  style={{ ...styles.select, width: 'auto', minWidth: '200px' }}
                   value={settings.defaultTone}
                   onChange={(e) => updateSettings({ ...settings, defaultTone: e.target.value })}
                 >
