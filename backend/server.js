@@ -1,648 +1,905 @@
-// Animation keyframes
-export const animationStyles = `
-  @keyframes slideIn {
-    from {
-      transform: translateX(100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
-  }
-  @keyframes slideOut {
-    from {
-      transform: translateX(0);
-      opacity: 1;
-    }
-    to {
-      transform: translateX(100%);
-      opacity: 0;
-    }
-  }
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-`;
+const express = require('express');
+const cors = require('cors');
+const fs = require('fs').promises;
+const path = require('path');
+const { authenticate } = require('@google-cloud/local-auth');
+const { google } = require('googleapis');
 
-// Color palette inspired by My Mind
-const colors = {
-  // Soft, warm neutrals
-  background: '#fdfbf7',      // Very soft warm white
-  surface: '#ffffff',         // Pure white for cards
-  surfaceAlt: '#faf8f5',     // Slightly warmer surface
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Health check endpoint for Render
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+// Define the permissions we need
+const SCOPES = [
+  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/calendar.events',  // Added write permission
+  'https://www.googleapis.com/auth/gmail.settings.basic'
+];
+
+// File paths
+const TOKEN_PATH = path.join(__dirname, 'token.json');
+const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
+const SETTINGS_PATH = path.join(__dirname, 'settings.json');
+const LOGS_PATH = path.join(__dirname, 'logs.json');
+const PTO_DATA_PATH = path.join(__dirname, 'pto-data.json');
+
+// Track automation status
+let automationEnabled = true;
+let lastStatus = null;
+
+// Load saved credentials
+async function loadSavedCredentialsIfExist() {
+  try {
+    const content = await fs.readFile(TOKEN_PATH);
+    const credentials = JSON.parse(content);
+    return google.auth.fromJSON(credentials);
+  } catch (err) {
+    return null;
+  }
+}
+
+// Get authenticated client
+async function authorize() {
+  let client = await loadSavedCredentialsIfExist();
+  if (client) {
+    return client;
+  }
+  throw new Error('No saved credentials found. Please run locally first to authenticate.');
+}
+
+// Load settings
+async function loadSettings() {
+  try {
+    const content = await fs.readFile(SETTINGS_PATH);
+    return JSON.parse(content);
+  } catch (err) {
+    // Default settings
+    const defaults = {
+      defaultTone: 'professional',
+      selectedCalendarId: 'primary',  // Default to primary calendar
+      templates: {
+        professional: 'Hi there - I am currently out of office and will return on {date}. I will be checking messages periodically but may be slow to respond.',
+        casual: 'Hey! I am away right now but I will get back to you as soon as I return on {date}. Thanks!'
+      }
+    };
+    await saveSettings(defaults);
+    return defaults;
+  }
+}
+
+// Save settings
+async function saveSettings(settings) {
+  await fs.writeFile(SETTINGS_PATH, JSON.stringify(settings, null, 2));
+}
+
+// Add log entry
+async function addLog(entry) {
+  let logs = [];
+  try {
+    const content = await fs.readFile(LOGS_PATH);
+    logs = JSON.parse(content);
+  } catch (err) {
+    // Start with empty logs
+  }
   
-  // Text colors
-  textPrimary: '#2d2926',    // Soft black
-  textSecondary: '#6b6460',  // Warm gray
-  textMuted: '#a09691',      // Muted brown-gray
+  logs.unshift({
+    timestamp: new Date().toISOString(),
+    ...entry
+  });
   
-  // Accent colors (softer, more muted)
-  primary: '#8b7355',        // Warm brown
-  primaryLight: '#a89072',   // Lighter warm brown
-  primaryDark: '#6e5a42',    // Darker warm brown
+  // Keep only last 50 logs
+  logs = logs.slice(0, 50);
   
-  // Status colors (gentler versions)
-  success: '#7ea474',        // Sage green
-  error: '#d68876',          // Dusty rose
-  warning: '#e4a853',        // Warm yellow
-  info: '#7a95b8',           // Soft blue
-  
-  // Borders and dividers
-  border: 'rgba(45, 41, 38, 0.08)',
-  borderLight: 'rgba(45, 41, 38, 0.04)',
-};
+  await fs.writeFile(LOGS_PATH, JSON.stringify(logs, null, 2));
+}
 
-// Toast styles
-export const getToastStyles = (isExiting) => ({
-  position: 'fixed',
-  top: '24px',
-  right: '24px',
-  padding: '18px 24px',
-  borderRadius: '16px',
-  color: colors.textPrimary,
-  fontWeight: '400',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '14px',
-  boxShadow: '0 4px 20px rgba(45, 41, 38, 0.08)',
-  border: `1px solid ${colors.borderLight}`,
-  animation: isExiting ? 'slideOut 0.3s ease-in' : 'slideIn 0.3s ease-out',
-  zIndex: 1000,
-  maxWidth: '380px',
-  minWidth: '280px',
-  backgroundColor: colors.surface,
-  fontSize: '15px',
-  lineHeight: '1.5'
-});
-
-export const toastTypeStyles = {
-  success: { 
-    backgroundColor: colors.surface,
-    borderColor: colors.success + '30',
-  },
-  error: { 
-    backgroundColor: colors.surface,
-    borderColor: colors.error + '30',
-  },
-  info: { 
-    backgroundColor: colors.surface,
-    borderColor: colors.info + '30',
-  },
-  warning: {
-    backgroundColor: colors.surface,
-    borderColor: colors.warning + '30',
-  }
-};
-
-export const toastIcons = {
-  success: '🌱',
-  error: '🌸',
-  info: '💫',
-  warning: '🌟'
-};
-
-export const toastCloseButtonStyle = {
-  background: 'transparent',
-  border: 'none',
-  color: colors.textMuted,
-  cursor: 'pointer',
-  fontSize: '20px',
-  width: '28px',
-  height: '28px',
-  borderRadius: '8px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  flexShrink: 0,
-  transition: 'all 0.2s ease',
-  marginLeft: '8px'
-};
-
-// Main application styles
-export const styles = {
-  app: {
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    backgroundColor: colors.background,
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-    color: colors.textPrimary,
-  },
-  loading: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'column',
-    minHeight: '100vh',
-    gap: '24px'
-  },
-  spinner: {
-    width: '36px',
-    height: '36px',
-    border: `2px solid ${colors.borderLight}`,
-    borderTop: `2px solid ${colors.primary}`,
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite'
-  },
-  header: {
-    background: colors.surface,
-    color: colors.textPrimary,
-    padding: '1.5rem 2rem',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottom: `1px solid ${colors.borderLight}`,
-    boxShadow: '0 1px 3px rgba(45, 41, 38, 0.03)',
-    flexWrap: 'wrap',
-    gap: '1rem'
-  },
-  headerTitle: {
-    margin: 0,
-    fontSize: '1.5rem',
-    fontWeight: '500',
-    letterSpacing: '-0.02em',
-    color: colors.textPrimary
-  },
-  statusBadge: {
-    display: 'flex',
-    alignItems: 'center',
-    background: colors.surfaceAlt,
-    padding: '0.625rem 1.25rem',
-    borderRadius: '24px',
-    fontSize: '0.875rem',
-    border: `1px solid ${colors.borderLight}`,
-    fontWeight: '500'
-  },
-  statusDot: {
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    marginRight: '0.625rem'
-  },
-  statusDotActive: {
-    backgroundColor: colors.success,
-    boxShadow: `0 0 0 3px ${colors.success}20`
-  },
-  statusDotInactive: {
-    backgroundColor: colors.textMuted,
-    boxShadow: `0 0 0 3px ${colors.textMuted}20`
-  },
-  nav: {
-    background: colors.surface,
-    borderBottom: `1px solid ${colors.borderLight}`,
-    display: 'flex',
-    padding: '0 1rem',
-    gap: '1rem',
-    overflowX: 'auto',
-    WebkitOverflowScrolling: 'touch'
-  },
-  navButton: {
-    background: 'none',
-    border: 'none',
-    padding: '1rem 0.75rem',
-    cursor: 'pointer',
-    fontSize: '0.9375rem',
-    color: colors.textSecondary,
-    borderBottom: '2px solid transparent',
-    transition: 'all 0.2s ease',
-    fontWeight: '500',
-    letterSpacing: '-0.01em',
-    whiteSpace: 'nowrap'
-  },
-  navButtonActive: {
-    color: colors.primary,
-    borderBottomColor: colors.primary
-  },
-  content: {
-    flex: 1,
-    padding: '2rem',
-    maxWidth: '1120px',
-    width: '100%',
-    margin: '0 auto',
-    animation: 'fadeIn 0.4s ease-out',
-    boxSizing: 'border-box'
-  },
-  card: {
-    background: colors.surface,
-    borderRadius: '16px',
-    padding: '2rem',
-    marginBottom: '1.5rem',
-    border: `1px solid ${colors.borderLight}`,
-    boxShadow: '0 2px 8px rgba(45, 41, 38, 0.04)',
-    transition: 'all 0.2s ease',
-    boxSizing: 'border-box'
-  },
-  cardTitle: {
-    marginTop: 0,
-    marginBottom: '1.75rem',
-    color: colors.textPrimary,
-    fontSize: '1.25rem',
-    fontWeight: '500',
-    letterSpacing: '-0.02em'
-  },
-  statusRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '0.875rem 0',
-    borderBottom: `1px solid ${colors.borderLight}`,
-    ':last-child': {
-      borderBottom: 'none'
+// ===== PTO DATA STORAGE FUNCTIONS =====
+async function loadPTOData() {
+  try {
+    const data = await fs.readFile(PTO_DATA_PATH, 'utf8');
+    const parsedData = JSON.parse(data);
+    
+    // Check if we need to reset PTO for new year
+    const currentYear = new Date().getFullYear();
+    if (!parsedData.lastResetYear || parsedData.lastResetYear < currentYear) {
+      console.log(`New year detected! Resetting PTO balance for ${currentYear}`);
+      parsedData.ptoBalance = {
+        available: 15, // Reset to default annual PTO
+        used: 0,
+        planned: 0
+      };
+      parsedData.lastResetYear = currentYear;
+      await savePTOData(parsedData);
     }
-  },
-  button: {
-    padding: '0.75rem 1.5rem',
-    border: 'none',
-    borderRadius: '10px',
-    fontSize: '0.9375rem',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    fontWeight: '500',
-    letterSpacing: '-0.01em'
-  },
-  primaryButton: {
-    background: colors.primary,
-    color: colors.surface,
-    boxShadow: '0 2px 8px rgba(139, 115, 85, 0.15)'
-  },
-  secondaryButton: {
-    background: colors.surfaceAlt,
-    color: colors.textPrimary,
-    border: `1px solid ${colors.borderLight}`
-  },
-  deleteButton: {
-    background: colors.error,
-    color: colors.surface,
-    padding: '0.625rem 1.25rem',
-    fontSize: '0.875rem'
-  },
-  deleteButtonSmall: {
-    background: 'transparent',
-    border: `1px solid ${colors.error}40`,
-    color: colors.error,
-    padding: '0.375rem 0.75rem',
-    fontSize: '0.8125rem',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease'
-  },
-  quickActions: {
-    display: 'flex',
-    gap: '1rem',
-    marginBottom: '1.5rem',
-    flexWrap: 'wrap'
-  },
-  eventItem: {
-    padding: '1.25rem',
-    background: colors.surfaceAlt,
-    borderRadius: '12px',
-    marginBottom: '1rem',
-    border: `1px solid ${colors.borderLight}`,
-    transition: 'all 0.2s ease'
-  },
-  eventItemHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start'
-  },
-  eventCard: {
-    border: `1px solid ${colors.borderLight}`,
-    borderRadius: '12px',
-    padding: '1.75rem',
-    marginBottom: '1rem',
-    background: colors.surface,
-    transition: 'all 0.2s ease'
-  },
-  eventHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '1.25rem'
-  },
-  textarea: {
-    width: '100%',
-    padding: '0.875rem 1rem',
-    border: `1px solid ${colors.borderLight}`,
-    borderRadius: '10px',
-    fontFamily: 'inherit',
-    resize: 'vertical',
-    background: colors.surfaceAlt,
-    color: colors.textPrimary,
-    fontSize: '0.9375rem',
-    lineHeight: '1.6',
-    transition: 'all 0.2s ease',
-    outline: 'none'
-  },
-  input: {
-    width: '100%',
-    padding: '0.75rem 1rem',
-    border: `1px solid ${colors.borderLight}`,
-    borderRadius: '10px',
-    fontSize: '0.9375rem',
-    background: colors.surfaceAlt,
-    color: colors.textPrimary,
-    transition: 'all 0.2s ease',
-    outline: 'none'
-  },
-  select: {
-    width: '100%',
-    padding: '0.75rem 1rem',
-    border: `1px solid ${colors.borderLight}`,
-    borderRadius: '10px',
-    fontSize: '0.9375rem',
-    backgroundColor: colors.surfaceAlt,
-    color: colors.textPrimary,
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    outline: 'none'
-  },
-  formGroup: {
-    marginBottom: '1.25rem'
-  },
-  formLabel: {
-    display: 'block',
-    marginBottom: '0.625rem',
-    color: colors.textPrimary,
-    fontWeight: '500',
-    fontSize: '0.875rem',
-    letterSpacing: '-0.01em'
-  },
-  scheduler: {
-    marginTop: '2rem',
-    padding: '2rem',
-    background: colors.surfaceAlt,
-    borderRadius: '12px',
-    border: `1px solid ${colors.borderLight}`
-  },
-  formRow: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '1.25rem'
-  },
-  formActions: {
-    display: 'flex',
-    gap: '1rem',
-    marginTop: '1.75rem'
-  },
-  switch: {
-    position: 'relative',
-    display: 'inline-block',
-    width: '48px',
-    height: '26px'
-  },
-  slider: {
-    position: 'absolute',
-    cursor: 'pointer',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.borderLight,
-    transition: '.3s',
-    borderRadius: '26px',
-    border: `1px solid ${colors.border}`
-  },
-  sliderBefore: {
-    position: 'absolute',
-    content: '""',
-    height: '18px',
-    width: '18px',
-    left: '3px',
-    bottom: '3px',
-    backgroundColor: colors.surface,
-    transition: '.3s',
-    borderRadius: '50%',
-    boxShadow: '0 2px 4px rgba(45, 41, 38, 0.1)'
-  },
-  logItem: {
-    display: 'grid',
-    gridTemplateColumns: '180px 150px 1fr',
-    gap: '1.25rem',
-    padding: '1rem 0',
-    borderBottom: `1px solid ${colors.borderLight}`,
-    fontSize: '0.875rem',
-    color: colors.textSecondary
-  },
-  calendarSelect: {
-    marginBottom: '2rem',
-    padding: '1.5rem',
-    background: colors.surfaceAlt,
-    borderRadius: '12px',
-    border: `1px solid ${colors.borderLight}`
-  },
-  calendarOption: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.625rem',
-    marginBottom: '0.375rem'
-  },
-  calendarDot: {
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    flexShrink: 0
-  },
-  wellnessNote: {
-    background: `linear-gradient(135deg, ${colors.surfaceAlt}, ${colors.surface})`,
-    padding: '1.25rem 1.5rem',
-    borderRadius: '12px',
-    marginBottom: '1.5rem',
-    fontSize: '0.9375rem',
-    color: colors.textSecondary,
-    lineHeight: '1.6',
-    border: `1px solid ${colors.borderLight}`,
-    fontStyle: 'normal'
-  },
-  toastContainer: {
-    position: 'fixed',
-    top: '24px',
-    right: '24px',
-    zIndex: 1000
-  },
-  toastWrapper: {
-    marginBottom: '12px'
-  },
-  // PTO Planner styles
-  ptoCard: {
-    background: colors.surface,
-    borderRadius: '16px',
-    padding: '1.5rem',
-    marginBottom: '1rem',
-    border: `1px solid ${colors.borderLight}`,
-    boxShadow: '0 2px 8px rgba(45, 41, 38, 0.04)'
-  },
-  ptoHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '1.5rem'
-  },
-  ptoBalance: {
-    display: 'flex',
-    gap: '2rem',
-    marginBottom: '1.5rem',
-    padding: '1.25rem',
-    background: colors.surfaceAlt,
-    borderRadius: '12px',
-    border: `1px solid ${colors.borderLight}`
-  },
-  ptoBalanceItem: {
-    flex: 1,
-    textAlign: 'center'
-  },
-  ptoBalanceLabel: {
-    fontSize: '0.875rem',
-    color: colors.textSecondary,
-    marginBottom: '0.5rem'
-  },
-  ptoBalanceValue: {
-    fontSize: '1.75rem',
-    fontWeight: '500',
-    color: colors.primary
-  },
-  holidayList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.75rem'
-  },
-  holidayItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '1rem',
-    background: colors.surfaceAlt,
-    borderRadius: '10px',
-    border: `1px solid ${colors.borderLight}`,
-    transition: 'all 0.2s ease'
-  },
-  holidayDates: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.25rem'
-  },
-  suggestionCard: {
-    padding: '1.25rem',
-    background: `linear-gradient(135deg, ${colors.success}10, ${colors.surface})`,
-    borderRadius: '12px',
-    border: `1px solid ${colors.success}30`,
-    marginBottom: '1rem',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease'
-  },
-  suggestionHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '0.75rem'
-  },
-  suggestionTitle: {
-    fontWeight: '500',
-    color: colors.textPrimary,
-    marginBottom: '0.25rem'
-  },
-  suggestionDays: {
-    fontSize: '0.875rem',
-    color: colors.textSecondary
-  },
-  suggestionBadge: {
-    padding: '0.25rem 0.75rem',
-    background: colors.success,
-    color: colors.surface,
-    borderRadius: '16px',
-    fontSize: '0.75rem',
-    fontWeight: '500'
-  },
-  calendarGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(7, 1fr)',
-    gap: '0.5rem',
-    marginTop: '1rem'
-  },
-  calendarDay: {
-    aspectRatio: '1',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '8px',
-    fontSize: '0.875rem',
-    fontWeight: '400',
-    cursor: 'default',
-    transition: 'all 0.2s ease'
-  },
-  calendarDayWeekend: {
-    background: colors.surfaceAlt,
-    color: colors.textSecondary
-  },
-  calendarDayHoliday: {
-    background: colors.primary,
-    color: colors.surface,
-    fontWeight: '500'
-  },
-  calendarDayPTO: {
-    background: colors.success,
-    color: colors.surface,
-    fontWeight: '500'
-  },
-  calendarDayBridge: {
-    background: `${colors.warning}20`,
-    border: `2px dashed ${colors.warning}`,
-    color: colors.textPrimary
+    
+    return parsedData;
+  } catch (error) {
+    // File doesn't exist, return defaults with pre-populated holidays
+    const currentYear = new Date().getFullYear();
+    
+    const defaults = {
+      ptoBalance: { available: 15, used: 0, planned: 0 },
+      lastResetYear: currentYear,
+      holidays: [
+        { id: 'h1', name: "New Year's Day", date: '2025-01-01', observedDate: '2025-01-01' },
+        { id: 'h2', name: 'Martin Luther King Jr. Day', date: '2025-01-20', observedDate: '2025-01-20' },
+        { id: 'h3', name: "Presidents' Day", date: '2025-02-17', observedDate: '2025-02-17' },
+        { id: 'h4', name: 'Memorial Day', date: '2025-05-26', observedDate: '2025-05-26' },
+        { id: 'h5', name: 'Independence Day', date: '2025-07-04', observedDate: '2025-07-04' },
+        { id: 'h6', name: 'Labor Day', date: '2025-09-01', observedDate: '2025-09-01' },
+        { id: 'h7', name: 'Thanksgiving', date: '2025-11-27', observedDate: '2025-11-27' },
+        { id: 'h8', name: 'Day After Thanksgiving', date: '2025-11-28', observedDate: '2025-11-28' },
+        { id: 'h9', name: 'Christmas Eve', date: '2025-12-24', observedDate: '2025-12-24' },
+        { id: 'h10', name: 'Christmas', date: '2025-12-25', observedDate: '2025-12-25' }
+      ]
+    };
+    
+    await savePTOData(defaults);
+    return defaults;
   }
-};
+}
 
-// Dynamic style helpers
-export const getSliderStyle = (isEnabled) => ({
-  ...styles.slider,
-  backgroundColor: isEnabled ? colors.primary : colors.borderLight,
-  borderColor: isEnabled ? colors.primaryDark : colors.border
+async function savePTOData(data) {
+  await fs.writeFile(PTO_DATA_PATH, JSON.stringify(data, null, 2));
+}
+
+async function getPTOBalance() {
+  const data = await loadPTOData();
+  return data.ptoBalance;
+}
+
+async function savePTOBalance(balance) {
+  const data = await loadPTOData();
+  data.ptoBalance = balance;
+  await savePTOData(data);
+}
+
+async function getHolidays() {
+  const data = await loadPTOData();
+  return data.holidays;
+}
+
+async function addHoliday(holiday) {
+  const data = await loadPTOData();
+  data.holidays.push(holiday);
+  await savePTOData(data);
+}
+
+async function deleteHoliday(id) {
+  const data = await loadPTOData();
+  data.holidays = data.holidays.filter(h => h.id !== id);
+  await savePTOData(data);
+}
+
+// API Routes
+
+// Get current status
+app.get('/api/status', async (req, res) => {
+  try {
+    const auth = await authorize();
+    const gmail = google.gmail({ version: 'v1', auth });
+    
+    const vacation = await gmail.users.settings.getVacation({
+      userId: 'me'
+    });
+    
+    res.json({
+      automationEnabled,
+      vacationResponder: {
+        enabled: vacation.data.enableAutoReply || false,
+        message: vacation.data.responseBodyPlainText || '',
+        subject: vacation.data.responseSubject || ''
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-export const getSliderBeforeStyle = (isEnabled) => ({
-  ...styles.sliderBefore,
-  transform: isEnabled ? 'translateX(20px)' : 'translateX(0)'
+// Get upcoming OOO events
+app.get('/api/events', async (req, res) => {
+  try {
+    const auth = await authorize();
+    const calendar = google.calendar({ version: 'v3', auth });
+    const settings = await loadSettings();
+    
+    const currentYear = new Date().getFullYear();
+    const startOfYear = new Date(currentYear, 0, 1);
+    const endOfYear = new Date(currentYear, 11, 31);
+    
+    const response = await calendar.events.list({
+      calendarId: settings.selectedCalendarId || 'primary',
+      timeMin: startOfYear.toISOString(),
+      timeMax: endOfYear.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+    });
+    
+    // Filter for OOO events and include IDs
+    const oooEvents = response.data.items
+      .filter(event => {
+        const summary = event.summary || '';
+        const eventType = event.eventType || 'default';
+        const summaryLower = summary.toLowerCase();
+        return eventType === 'outOfOffice' || 
+               summaryLower.includes('out of office') || 
+               summaryLower.includes('ooo') ||
+               summaryLower.includes('pto');
+      })
+      .map(event => ({
+        id: event.id,
+        summary: event.summary,
+        start: event.start,
+        end: event.end,
+        description: event.description,
+        location: event.location
+      }));
+    
+    res.json({ events: oooEvents });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-export const getStatusDotStyle = (isActive) => ({
-  ...styles.statusDot,
-  ...(isActive ? styles.statusDotActive : styles.statusDotInactive)
+// Get settings
+app.get('/api/settings', async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-export const getNavButtonStyle = (isActive) => ({
-  ...styles.navButton,
-  ...(isActive ? styles.navButtonActive : {})
+// Get available calendars
+app.get('/api/calendars', async (req, res) => {
+  try {
+    const auth = await authorize();
+    const calendar = google.calendar({ version: 'v3', auth });
+    
+    const response = await calendar.calendarList.list({
+      minAccessRole: 'writer'  // Only calendars we can write to
+    });
+    
+    const calendars = response.data.items.map(cal => ({
+      id: cal.id,
+      summary: cal.summary,
+      primary: cal.primary || false,
+      backgroundColor: cal.backgroundColor,
+      accessRole: cal.accessRole
+    }));
+    
+    res.json({ calendars });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-export const getButtonStyle = (base, modifier, disabled) => ({
-  ...styles.button,
-  ...base,
-  opacity: disabled ? 0.6 : 1,
-  cursor: disabled ? 'not-allowed' : 'pointer'
+// Update settings
+app.post('/api/settings', async (req, res) => {
+  try {
+    await saveSettings(req.body);
+    await addLog({
+      action: 'settings_updated',
+      details: 'Settings were updated'
+    });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-export const getLogActionColor = (action) => {
-  if (action.includes('enabled') || action.includes('toggle')) return colors.success;
-  if (action.includes('disabled')) return colors.error;
-  if (action.includes('deleted')) return colors.warning;
-  return colors.info;
-};
+// Toggle automation
+app.post('/api/toggle-automation', async (req, res) => {
+  try {
+    automationEnabled = req.body.enabled;
+    await addLog({
+      action: 'automation_toggled',
+      enabled: automationEnabled,
+      details: `Automation ${automationEnabled ? 'enabled' : 'disabled'}`
+    });
+    res.json({ automationEnabled });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
-// Hover effects and focus states
-export const inputFocusStyle = {
-  borderColor: colors.primary,
-  boxShadow: `0 0 0 3px ${colors.primary}15`
-};
+// Manual toggle vacation responder
+app.post('/api/toggle-responder', async (req, res) => {
+  try {
+    const auth = await authorize();
+    const gmail = google.gmail({ version: 'v1', auth });
+    
+    const { enabled, message } = req.body;
+    
+    await gmail.users.settings.updateVacation({
+      userId: 'me',
+      requestBody: {
+        enableAutoReply: enabled,
+        responseSubject: enabled ? 'Out of Office' : '',
+        responseBodyPlainText: enabled ? message : '',
+        restrictToContacts: false,
+        restrictToDomain: false
+      }
+    });
+    
+    await addLog({
+      action: 'manual_toggle',
+      enabled,
+      details: `Vacation responder manually ${enabled ? 'enabled' : 'disabled'}`
+    });
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
-export const buttonHoverStyle = {
-  transform: 'translateY(-1px)',
-  boxShadow: '0 4px 12px rgba(45, 41, 38, 0.08)'
-};
+// Get logs
+app.get('/api/logs', async (req, res) => {
+  try {
+    const content = await fs.readFile(LOGS_PATH);
+    const logs = JSON.parse(content);
+    res.json({ logs: logs.slice(0, 10) }); // Return last 10
+  } catch (error) {
+    res.json({ logs: [] });
+  }
+});
 
-export const cardHoverStyle = {
-  boxShadow: '0 4px 16px rgba(45, 41, 38, 0.06)'
-};
+// Create OOO event
+app.post('/api/create-event', async (req, res) => {
+  try {
+    const auth = await authorize();
+    const calendar = google.calendar({ version: 'v3', auth });
+    const settings = await loadSettings();
+    
+    const { summary, startDate, startTime, endDate, endTime, tone, customMessage, allDay } = req.body;
+    
+    // Build event object - without eventType to avoid description restriction
+    const event = {
+      summary: tone ? `${summary} | ${tone}` : summary
+    };
+    
+    // Only add description if there's a custom message and we're not using eventType
+    if (customMessage) {
+      event.description = `[[OOO_MESSAGE: ${customMessage}]]`;
+    }
+    
+    // Handle date/time with timezone
+    if (allDay) {
+      event.start = { date: startDate };
+      event.end = { date: endDate };
+    } else {
+      event.start = { 
+        dateTime: `${startDate}T${startTime}:00`,
+        timeZone: 'America/New_York'
+      };
+      event.end = { 
+        dateTime: `${endDate}T${endTime}:00`,
+        timeZone: 'America/New_York'
+      };
+    }
+    
+    // Create the event
+    const response = await calendar.events.insert({
+      calendarId: settings.selectedCalendarId || 'primary',
+      requestBody: event
+    });
+    
+    await addLog({
+      action: 'event_created',
+      event: summary,
+      details: `Created OOO event: ${summary}`
+    });
+    
+    res.json({ success: true, event: response.data });
+  } catch (error) {
+    console.error('Error creating event:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete OOO event
+app.delete('/api/delete-event/:eventId', async (req, res) => {
+  try {
+    const auth = await authorize();
+    const calendar = google.calendar({ version: 'v3', auth });
+    const settings = await loadSettings();
+    
+    const { eventId } = req.params;
+    
+    // Get event details first (for logging)
+    let eventSummary = 'Unknown event';
+    try {
+      const event = await calendar.events.get({
+        calendarId: settings.selectedCalendarId || 'primary',
+        eventId: eventId
+      });
+      eventSummary = event.data.summary || 'Untitled event';
+    } catch (err) {
+      // Event might not exist, continue with deletion attempt
+    }
+    
+    // Delete the event
+    await calendar.events.delete({
+      calendarId: settings.selectedCalendarId || 'primary',
+      eventId: eventId
+    });
+    
+    await addLog({
+      action: 'event_deleted',
+      event: eventSummary,
+      details: `Deleted OOO event: ${eventSummary}`
+    });
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting event:', error);
+    if (error.code === 404) {
+      res.status(404).json({ error: 'Event not found' });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
+
+// ===== PTO BALANCE ENDPOINTS =====
+
+// Get PTO balance
+app.get('/api/pto-balance', async (req, res) => {
+  try {
+    const balance = await getPTOBalance();
+    res.json(balance);
+  } catch (error) {
+    console.error('Error fetching PTO balance:', error);
+    res.status(500).json({ error: 'Failed to fetch PTO balance' });
+  }
+});
+
+// Update PTO balance
+app.post('/api/pto-balance', async (req, res) => {
+  try {
+    const { available, used, planned } = req.body;
+    await savePTOBalance({ available, used, planned });
+    
+    await addLog({
+      action: 'pto_balance_updated',
+      details: `PTO balance updated: ${available} days available`
+    });
+    
+    res.json({ available, used, planned });
+  } catch (error) {
+    console.error('Error updating PTO balance:', error);
+    res.status(500).json({ error: 'Failed to update PTO balance' });
+  }
+});
+
+// ===== HOLIDAY ENDPOINTS =====
+
+// Get all holidays
+app.get('/api/holidays', async (req, res) => {
+  try {
+    const holidays = await getHolidays();
+    res.json({ holidays });
+  } catch (error) {
+    console.error('Error fetching holidays:', error);
+    res.status(500).json({ error: 'Failed to fetch holidays' });
+  }
+});
+
+// Add a new holiday
+app.post('/api/holidays', async (req, res) => {
+  try {
+    const { name, date, observedDate } = req.body;
+    
+    const newHoliday = {
+      id: `holiday-${Date.now()}`,
+      name,
+      date,
+      observedDate: observedDate || date
+    };
+    
+    await addHoliday(newHoliday);
+    
+    await addLog({
+      action: 'holiday_added',
+      details: `Added holiday: ${name}`
+    });
+    
+    res.json(newHoliday);
+  } catch (error) {
+    console.error('Error adding holiday:', error);
+    res.status(500).json({ error: 'Failed to add holiday' });
+  }
+});
+
+// Delete a holiday
+app.delete('/api/holidays/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await deleteHoliday(id);
+    
+    await addLog({
+      action: 'holiday_deleted',
+      details: `Deleted holiday`
+    });
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting holiday:', error);
+    res.status(500).json({ error: 'Failed to delete holiday' });
+  }
+});
+
+// ===== SMART PTO SUGGESTIONS ENDPOINT =====
+
+app.get('/api/pto-suggestions', async (req, res) => {
+  try {
+    const holidays = await getHolidays();
+    const ptoBalance = await getPTOBalance();
+    
+    const suggestions = generatePTOSuggestions(holidays, ptoBalance);
+    
+    res.json({ suggestions });
+  } catch (error) {
+    console.error('Error generating PTO suggestions:', error);
+    res.status(500).json({ error: 'Failed to generate suggestions' });
+  }
+});
+
+// ===== PTO SUGGESTION HELPER FUNCTIONS =====
+
+// Generate smart PTO suggestions based on holidays
+function generatePTOSuggestions(holidays, ptoBalance) {
+  const suggestions = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  holidays.forEach(holiday => {
+    const holidayDate = new Date(holiday.observedDate);
+    const dayOfWeek = holidayDate.getDay(); // 0 = Sunday, 6 = Saturday
+    
+    // Skip if holiday is in the past
+    if (holidayDate < today) return;
+    
+    // Case 1: Holiday on Thursday (day 4) - suggest Friday off
+    if (dayOfWeek === 4) {
+      const friday = new Date(holidayDate);
+      friday.setDate(friday.getDate() + 1);
+      
+      suggestions.push({
+        title: `${holiday.name} Extended Weekend`,
+        dateRange: formatDateRange(holidayDate, 4),
+        ptoDays: [formatDate(friday)],
+        ptoDaysCount: 1,
+        totalDaysOff: 4,
+        description: `Take Friday off after ${holiday.name} for a 4-day weekend`,
+        returnDate: formatReturnDate(holidayDate, 4)
+      });
+    }
+    
+    // Case 2: Holiday on Tuesday (day 2) - suggest Monday off
+    if (dayOfWeek === 2) {
+      const monday = new Date(holidayDate);
+      monday.setDate(monday.getDate() - 1);
+      
+      suggestions.push({
+        title: `${holiday.name} Extended Weekend`,
+        dateRange: formatDateRange(monday, 4),
+        ptoDays: [formatDate(monday)],
+        ptoDaysCount: 1,
+        totalDaysOff: 4,
+        description: `Take Monday off before ${holiday.name} for a 4-day weekend`,
+        returnDate: formatReturnDate(holidayDate, 1)
+      });
+    }
+    
+    // Case 3: Holiday on Wednesday - suggest full week off
+    if (dayOfWeek === 3) {
+      const monday = new Date(holidayDate);
+      monday.setDate(monday.getDate() - 2);
+      const tuesday = new Date(holidayDate);
+      tuesday.setDate(tuesday.getDate() - 1);
+      const thursday = new Date(holidayDate);
+      thursday.setDate(thursday.getDate() + 1);
+      const friday = new Date(holidayDate);
+      friday.setDate(friday.getDate() + 2);
+      
+      suggestions.push({
+        title: `${holiday.name} Full Week`,
+        dateRange: formatDateRange(monday, 9),
+        ptoDays: [formatDate(monday), formatDate(tuesday), formatDate(thursday), formatDate(friday)],
+        ptoDaysCount: 4,
+        totalDaysOff: 9,
+        description: `Take the full week around ${holiday.name} for a 9-day break`,
+        returnDate: formatReturnDate(monday, 9)
+      });
+    }
+    
+    // Case 4: Holiday on Monday or Friday - already creates long weekend
+    if (dayOfWeek === 1 || dayOfWeek === 5) {
+      if (dayOfWeek === 5) { // Friday
+        const thursday = new Date(holidayDate);
+        thursday.setDate(thursday.getDate() - 1);
+        
+        suggestions.push({
+          title: `${holiday.name} Extended Weekend`,
+          dateRange: formatDateRange(thursday, 4),
+          ptoDays: [formatDate(thursday)],
+          ptoDaysCount: 1,
+          totalDaysOff: 4,
+          description: `Take Thursday off before ${holiday.name} for a 4-day weekend`,
+          returnDate: formatReturnDate(holidayDate, 3)
+        });
+      }
+      
+      if (dayOfWeek === 1) { // Monday
+        const tuesday = new Date(holidayDate);
+        tuesday.setDate(tuesday.getDate() + 1);
+        
+        suggestions.push({
+          title: `${holiday.name} Extended Break`,
+          dateRange: formatDateRange(holidayDate, 4),
+          ptoDays: [formatDate(tuesday)],
+          ptoDaysCount: 1,
+          totalDaysOff: 4,
+          description: `Take Tuesday off after ${holiday.name} for a 4-day weekend`,
+          returnDate: formatReturnDate(tuesday, 1)
+        });
+      }
+    }
+  });
+  
+  // Look for holiday clusters (e.g., Thanksgiving week, Christmas/New Year)
+  const thanksgivingHoliday = holidays.find(h => h.name.toLowerCase().includes('thanksgiving') && !h.name.toLowerCase().includes('after'));
+  if (thanksgivingHoliday) {
+    const thanksgivingDate = new Date(thanksgivingHoliday.observedDate);
+    const monday = new Date(thanksgivingDate);
+    monday.setDate(monday.getDate() - 3);
+    const tuesday = new Date(thanksgivingDate);
+    tuesday.setDate(tuesday.getDate() - 2);
+    const wednesday = new Date(thanksgivingDate);
+    wednesday.setDate(wednesday.getDate() - 1);
+    const friday = new Date(thanksgivingDate);
+    friday.setDate(friday.getDate() + 1);
+    
+    // Check if Friday after Thanksgiving is also a holiday
+    const dayAfterThanksgiving = holidays.find(h => 
+      h.name.toLowerCase().includes('after thanksgiving') || 
+      formatDate(new Date(h.observedDate)) === formatDate(friday)
+    );
+    
+    if (dayAfterThanksgiving) {
+      // Only need Mon-Wed off
+      suggestions.push({
+        title: 'Thanksgiving Week Off',
+        dateRange: formatDateRange(monday, 9),
+        ptoDays: [formatDate(monday), formatDate(tuesday), formatDate(wednesday)],
+        ptoDaysCount: 3,
+        totalDaysOff: 9,
+        description: 'Take 3 days for a full week off around Thanksgiving',
+        returnDate: formatReturnDate(monday, 9)
+      });
+    } else {
+      // Need Mon-Wed + Friday
+      suggestions.push({
+        title: 'Thanksgiving Week Off',
+        dateRange: formatDateRange(monday, 9),
+        ptoDays: [formatDate(monday), formatDate(tuesday), formatDate(wednesday), formatDate(friday)],
+        ptoDaysCount: 4,
+        totalDaysOff: 9,
+        description: 'Take 4 days for a full week off around Thanksgiving',
+        returnDate: formatReturnDate(monday, 9)
+      });
+    }
+  }
+  
+  // Filter suggestions based on available PTO and remove duplicates
+  const uniqueSuggestions = suggestions
+    .filter(s => s.ptoDaysCount <= ptoBalance.available)
+    .filter((suggestion, index, self) => 
+      index === self.findIndex(s => s.title === suggestion.title)
+    )
+    .sort((a, b) => {
+      // Sort by efficiency (days off per PTO day used)
+      const efficiencyA = a.totalDaysOff / a.ptoDaysCount;
+      const efficiencyB = b.totalDaysOff / b.ptoDaysCount;
+      return efficiencyB - efficiencyA;
+    });
+  
+  return uniqueSuggestions;
+}
+
+// Helper function to format date as YYYY-MM-DD
+function formatDate(date) {
+  return date.toISOString().split('T')[0];
+}
+
+// Helper function to format date range
+function formatDateRange(startDate, daysOff) {
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + daysOff - 1);
+  
+  const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  
+  return `${startStr} - ${endStr}`;
+}
+
+// Helper function to format return date
+function formatReturnDate(startDate, daysOff) {
+  const returnDate = new Date(startDate);
+  returnDate.setDate(returnDate.getDate() + daysOff);
+  
+  // Skip to Monday if return date is weekend
+  if (returnDate.getDay() === 0) returnDate.setDate(returnDate.getDate() + 1);
+  if (returnDate.getDay() === 6) returnDate.setDate(returnDate.getDate() + 2);
+  
+  return formatDate(returnDate);
+}
+
+// Check if user is currently out of office
+async function checkOutOfOffice(auth) {
+  const calendar = google.calendar({ version: 'v3', auth });
+  const settings = await loadSettings();
+  const now = new Date();
+  
+  try {
+    const response = await calendar.events.list({
+      calendarId: settings.selectedCalendarId || 'primary',
+      timeMin: now.toISOString(),
+      timeMax: new Date(now.getTime() + 60000).toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+    });
+
+    const events = response.data.items;
+    
+    for (const event of events) {
+      const summary = event.summary || '';
+      const eventType = event.eventType || 'default';
+      const summaryLower = summary.toLowerCase();
+      
+      if (eventType === 'outOfOffice' || 
+          summaryLower.includes('out of office') || 
+          summaryLower.includes('ooo') ||
+          summaryLower.includes('pto')) {
+        const endTime = event.end.dateTime || event.end.date;
+        let customMessage = null;
+        let tone = 'professional';
+        
+        if (event.description) {
+          const messageMatch = event.description.match(/\[\[OOO_MESSAGE:\s*(.*?)\]\]/);
+          if (messageMatch) {
+            customMessage = messageMatch[1];
+          }
+        }
+        
+        if (summary.includes('|')) {
+          const parts = summary.split('|');
+          const possibleTone = parts[1].trim().toLowerCase();
+          if (['casual', 'professional'].includes(possibleTone)) {
+            tone = possibleTone;
+          }
+        }
+        
+        return {
+          isOOO: true,
+          endTime: endTime,
+          customMessage: customMessage,
+          tone: tone,
+          eventName: summary
+        };
+      }
+    }
+    
+    return { isOOO: false };
+  } catch (error) {
+    console.error('Error checking calendar:', error);
+    return { isOOO: false };
+  }
+}
+
+// Update Gmail vacation responder
+async function updateGmailResponder(auth, oooStatus) {
+  const gmail = google.gmail({ version: 'v1', auth });
+  const settings = await loadSettings();
+  
+  try {
+    if (oooStatus.isOOO) {
+      let message = oooStatus.customMessage;
+      
+      if (!message) {
+        message = settings.templates[oooStatus.tone] || settings.templates[settings.defaultTone];
+        const endDate = new Date(oooStatus.endTime);
+        const dateStr = endDate.toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        message = message.replace('{date}', dateStr);
+      }
+      
+      await gmail.users.settings.updateVacation({
+        userId: 'me',
+        requestBody: {
+          enableAutoReply: true,
+          responseSubject: 'Out of Office',
+          responseBodyPlainText: message,
+          restrictToContacts: false,
+          restrictToDomain: false
+        }
+      });
+      
+      await addLog({
+        action: 'auto_enabled',
+        event: oooStatus.eventName,
+        details: `Auto-responder enabled for: ${oooStatus.eventName}`
+      });
+      
+    } else {
+      await gmail.users.settings.updateVacation({
+        userId: 'me',
+        requestBody: {
+          enableAutoReply: false
+        }
+      });
+      
+      await addLog({
+        action: 'auto_disabled',
+        details: 'Auto-responder disabled (no OOO events)'
+      });
+    }
+  } catch (error) {
+    console.error('Error updating Gmail responder:', error);
+  }
+}
+
+// Background check function
+async function runCheck() {
+  if (!automationEnabled) {
+    console.log('Automation is disabled - skipping check');
+    return;
+  }
+  
+  const timestamp = new Date().toLocaleString();
+  console.log(`[${timestamp}] Running OOO check...`);
+  
+  try {
+    const auth = await authorize();
+    const oooStatus = await checkOutOfOffice(auth);
+    const currentStatus = oooStatus.isOOO;
+    
+    if (lastStatus === null || lastStatus !== currentStatus) {
+      console.log('Status changed! Updating Gmail...');
+      await updateGmailResponder(auth, oooStatus);
+      lastStatus = currentStatus;
+    } else {
+      console.log('No status change - skipping Gmail update');
+    }
+  } catch (error) {
+    console.error('Error during check:', error.message);
+  }
+}
+
+// Start the server
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 API Server running on port ${PORT}`);
+  console.log(`🌍 Server is listening on all network interfaces`);
+  console.log('📅 Starting background calendar checks...\n');
+  
+  // Run check immediately
+  runCheck();
+  
+  // Then every 5 minutes
+  setInterval(runCheck, 5 * 60 * 1000);
+});
