@@ -67,9 +67,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
       zIndex: 1000
     }} onClick={onClose}>
       <div style={{
-        background: styles.card.background,
-        borderRadius: styles.card.borderRadius,
-        padding: '2rem',
+        ...styles.card,
         maxWidth: '500px',
         width: '90%',
         maxHeight: '80vh',
@@ -82,7 +80,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
           alignItems: 'center',
           marginBottom: '1.5rem'
         }}>
-          <h2 style={{ margin: 0, color: styles.cardTitle.color }}>{title}</h2>
+          <h2 style={styles.cardTitle}>{title}</h2>
           <button
             onClick={onClose}
             style={{
@@ -196,9 +194,10 @@ function App() {
 
   const updatePlannedPTO = (events) => {
     // Count PTO days from events
-    const ptoEvents = events.filter(event => 
-      event.summary && event.summary.toLowerCase().includes('pto')
-    );
+    const ptoEvents = events.filter(event => {
+      const summary = (event.summary || '').toLowerCase();
+      return summary.includes('pto') || summary.includes('out of office') || summary.includes('ooo');
+    });
     
     let ptoDaysCount = 0;
     ptoEvents.forEach(event => {
@@ -421,8 +420,9 @@ function App() {
     }
 
     try {
-      // Check if this is a PTO event
-      const isPTOEvent = eventSummary.toLowerCase().includes('pto');
+      // Check if this is a PTO/OOO event
+      const summaryLower = eventSummary.toLowerCase();
+      const isPTOEvent = summaryLower.includes('pto') || summaryLower.includes('out of office') || summaryLower.includes('ooo');
       let ptoDaysToReturn = 0;
       
       if (isPTOEvent) {
@@ -783,14 +783,14 @@ function App() {
               {modalData.suggestion && (
                 <div>
                   <div style={{ marginBottom: '1.5rem' }}>
-                    <h3 style={{ margin: '0 0 0.5rem 0', color: styles.primary }}>
+                    <h3 style={{ margin: '0 0 0.5rem 0', color: '#8b7355' }}>
                       {modalData.suggestion.title}
                     </h3>
                     <p style={{ margin: '0 0 1rem 0', color: '#6b7280' }}>
                       {modalData.suggestion.description}
                     </p>
                     <div style={{
-                      background: styles.surfaceAlt,
+                      background: '#faf8f5',
                       padding: '1rem',
                       borderRadius: '8px',
                       marginBottom: '1rem'
@@ -805,7 +805,7 @@ function App() {
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span>Total Time Off:</span>
-                        <strong style={{ color: styles.success }}>{modalData.suggestion.totalDaysOff} days</strong>
+                        <strong style={{ color: '#7ea474' }}>{modalData.suggestion.totalDaysOff} days</strong>
                       </div>
                     </div>
                     <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>

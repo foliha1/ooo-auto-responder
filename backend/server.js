@@ -207,7 +207,11 @@ app.get('/api/events', async (req, res) => {
       .filter(event => {
         const summary = event.summary || '';
         const eventType = event.eventType || 'default';
-        return eventType === 'outOfOffice' || summary.toLowerCase().includes('out of office');
+        const summaryLower = summary.toLowerCase();
+        return eventType === 'outOfOffice' || 
+               summaryLower.includes('out of office') || 
+               summaryLower.includes('ooo') ||
+               summaryLower.includes('pto');
       })
       .map(event => ({
         id: event.id,
@@ -741,8 +745,12 @@ async function checkOutOfOffice(auth) {
     for (const event of events) {
       const summary = event.summary || '';
       const eventType = event.eventType || 'default';
+      const summaryLower = summary.toLowerCase();
       
-      if (eventType === 'outOfOffice' || summary.toLowerCase().includes('out of office')) {
+      if (eventType === 'outOfOffice' || 
+          summaryLower.includes('out of office') || 
+          summaryLower.includes('ooo') ||
+          summaryLower.includes('pto')) {
         const endTime = event.end.dateTime || event.end.date;
         let customMessage = null;
         let tone = 'professional';
