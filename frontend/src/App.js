@@ -1,158 +1,169 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-const styles = {
-  appContainer: {
-    fontFamily: 'sans-serif',
-    backgroundColor: '#fdfcf9',
-    color: '#2f2f2f',
-    minHeight: '100vh',
-    padding: '40px',
-    boxSizing: 'border-box',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '48px',
-  },
-  title: {
-    fontSize: '28px',
-    fontWeight: '600',
-    color: '#3b3a39',
-  },
-  toggleBtn: {
-    backgroundColor: '#f0ebe3',
-    color: '#3b3a39',
-    padding: '12px 20px',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '16px',
-    transition: 'background-color 0.3s ease',
-  },
-  toggleBtnHover: {
-    backgroundColor: '#e0dcd4'
-  },
-  main: {
-    maxWidth: '480px',
-    margin: '0 auto'
-  },
-  card: {
-    backgroundColor: '#fff',
-    padding: '32px',
-    borderRadius: '16px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.06)',
-    textAlign: 'center'
-  },
-  cardTitle: {
-    fontSize: '20px',
-    marginBottom: '12px',
-  },
-  cardText: {
-    fontSize: '16px',
-    color: '#5a5a5a'
-  },
-  toast: {
-    position: 'fixed',
-    top: '20px',
-    right: '20px',
-    backgroundColor: '#ffffff',
-    padding: '16px 24px',
-    borderRadius: '12px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    fontSize: '14px',
-    borderLeft: '4px solid #cccccc'
-  },
-  success: {
-    borderLeftColor: '#78c2ad'
-  },
-  error: {
-    borderLeftColor: '#f27596'
-  }
-};
-
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
-    const timer = setTimeout(onClose, 4000);
+    const timer = setTimeout(onClose, 3000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
   return (
-    <div style={{ ...styles.toast, ...(type === 'success' ? styles.success : styles.error) }}>
-      <span>{type === 'success' ? '✓' : '⚠️'}</span>
-      <span>{message}</span>
-      <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '16px' }}>×</button>
+    <div className={`toast toast-${type}`}>
+      {message}
+      <button className="toast-close" onClick={onClose}>
+        &times;
+      </button>
     </div>
   );
 };
 
-function App() {
-  const [status, setStatus] = useState(null);
+const App = () => {
   const [loading, setLoading] = useState(true);
+  const [enabled, setEnabled] = useState(false);
   const [toast, setToast] = useState(null);
-  const API_URL = process.env.REACT_APP_API_URL || 'https://ooo-api-o6ab.onrender.com/api';
-
-  const fetchStatus = async () => {
-    try {
-      const res = await fetch(`${API_URL}/status`);
-      const data = await res.json();
-      setStatus(data);
-    } catch (err) {
-      setToast({ message: 'Connection error. Trying again soon.', type: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [view, setView] = useState('dashboard');
+  const [events, setEvents] = useState([]);
+  const [settings, setSettings] = useState({});
+  const [logs, setLogs] = useState([]);
 
   useEffect(() => {
-    fetchStatus();
+    fetch('/api/status')
+      .then((res) => res.json())
+      .then((data) => {
+        setEnabled(data.enabled);
+        setLoading(false);
+      })
+      .catch(() => {
+        setToast({ message: 'Failed to fetch status', type: 'error' });
+        setLoading(false);
+      });
   }, []);
 
-  const toggleAutomation = async () => {
-    try {
-      const res = await fetch(`${API_URL}/toggle-automation`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: !status.automationEnabled })
-      });
-      const data = await res.json();
-      setStatus(prev => ({ ...prev, automationEnabled: data.automationEnabled }));
-      setToast({
-        message: data.automationEnabled ? 'Protection is now active 🛡️' : 'Automation paused — all you now.',
-        type: 'success'
-      });
-    } catch {
-      setToast({ message: 'Could not update status. Try again.', type: 'error' });
+  useEffect(() => {
+    if (view === 'scheduler') loadEvents();
+    if (view === 'settings') loadSettings();
+    if (view === 'logs') loadLogs();
+  }, [view]);
+
+  const toggleAutomation = () => {
+    setLoading(true);
+    fetch('/api/toggle', {
+      method: 'POST',
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setEnabled(data.enabled);
+        setToast({ message: `Automation ${data.enabled ? 'enabled' : 'disabled'}`, type: 'success' });
+      })
+      .catch(() => {
+        setToast({ message: 'Toggle failed', type: 'error' });
+      })
+      .finally(() => setLoading(false));
+  };
+
+  const loadEvents = () => {
+    fetch('/api/events')
+      .then(res => res.json())
+      .then(setEvents)
+      .catch(() => setToast({ message: 'Failed to load events', type: 'error' }));
+  };
+
+  const loadSettings = () => {
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(setSettings)
+      .catch(() => setToast({ message: 'Failed to load settings', type: 'error' }));
+  };
+
+  const loadLogs = () => {
+    fetch('/api/logs')
+      .then(res => res.json())
+      .then(setLogs)
+      .catch(() => setToast({ message: 'Failed to load logs', type: 'error' }));
+  };
+
+  const renderView = () => {
+    if (loading) return <div className="app-loading">Loading...</div>;
+
+    switch (view) {
+      case 'dashboard':
+        return (
+          <div className="status-card">
+            <h2>Status: {enabled ? 'Enabled' : 'Disabled'}</h2>
+            <p>
+              Your automatic out-of-office responder is currently <strong>{enabled ? 'on' : 'off'}</strong>.
+            </p>
+          </div>
+        );
+      case 'scheduler':
+        return (
+          <div className="status-card">
+            <h2>Scheduled Events</h2>
+            {events.length === 0 ? <p>No upcoming events.</p> : (
+              <ul>
+                {events.map(event => (
+                  <li key={event.id}>
+                    <strong>{event.summary}</strong> — {new Date(event.start.dateTime).toLocaleString()} to {new Date(event.end.dateTime).toLocaleString()}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      case 'settings':
+        return (
+          <div className="status-card">
+            <h2>Settings</h2>
+            <p>Primary Calendar: {settings.primaryCalendar}</p>
+            <p>Default Message: {settings.defaultMessage}</p>
+            {/* Add settings form as needed */}
+          </div>
+        );
+      case 'logs':
+        return (
+          <div className="status-card">
+            <h2>Activity Logs</h2>
+            {logs.length === 0 ? <p>No logs available.</p> : (
+              <ul>
+                {logs.map(log => (
+                  <li key={log.id}>
+                    <strong>{log.action}</strong> — {new Date(log.timestamp).toLocaleString()}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      default:
+        return null;
     }
   };
 
-  if (loading) {
-    return <div style={styles.appContainer}>Loading your space...</div>;
-  }
-
   return (
-    <div style={styles.appContainer}>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+    <div className="app-container">
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
 
-      <header style={styles.header}>
-        <h1 style={styles.title}>🌿 Space for You</h1>
-        <button style={styles.toggleBtn} onClick={toggleAutomation}>
-          {status.automationEnabled ? 'Pause Protection' : 'Enable Protection'}
-        </button>
+      <header className="app-header">
+        <h1>Out of Office</h1>
+        <div>
+          <button className="toggle-btn" onClick={toggleAutomation} disabled={loading}>
+            {enabled ? 'Disable' : 'Enable'} Automation
+          </button>
+        </div>
       </header>
 
-      <main style={styles.main}>
-        <section style={styles.card}>
-          <h2 style={styles.cardTitle}>Status</h2>
-          <p style={styles.cardText}>Automation: <strong>{status.automationEnabled ? 'Enabled' : 'Disabled'}</strong></p>
-        </section>
-      </main>
+      <nav className="app-nav">
+        <button onClick={() => setView('dashboard')}>Dashboard</button>
+        <button onClick={() => setView('scheduler')}>Scheduler</button>
+        <button onClick={() => setView('settings')}>Settings</button>
+        <button onClick={() => setView('logs')}>Logs</button>
+      </nav>
+
+      <main className="app-main">{renderView()}</main>
     </div>
   );
-}
+};
 
 export default App;
