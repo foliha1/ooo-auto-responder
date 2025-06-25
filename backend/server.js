@@ -38,6 +38,60 @@ app.get('/api/debug', async (req, res) => {
   }
 });
 
+// Debug endpoint to see all calendar events
+app.get('/api/debug/events', async (req, res) => {
+  try {
+    const auth = await authorize();
+    const calendar = google.calendar({ version: 'v3', auth });
+    const settings = await loadSettings();
+    
+    const currentYear = new Date().getFullYear();
+    const startOfYear = new Date(currentYear, 0, 1);
+    const endOfYear = new Date(currentYear, 11, 31);
+    
+    const response = await calendar.events.list({
+      calendarId: settings.selectedCalendarId || 'primary',
+      timeMin: startOfYear.toISOString(),
+      timeMax: endOfYear.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+      maxResults: 50
+    });
+    
+    const allEvents = response.data.items.map(event => ({
+      id: event.id,
+      summary: event.summary,
+      eventType: event.eventType,
+      start: event.start,
+      end: event.end
+    }));
+    
+    const oooEvents = response.data.items.filter(event => {
+      const summary = event.summary || '';
+      const eventType = event.eventType || 'default';
+      const summaryLower = summary.toLowerCase();
+      return eventType === 'outOfOffice' || 
+             summaryLower.includes('out of office') || 
+             summaryLower.includes('ooo') ||
+             summaryLower.includes('pto');
+    });
+    
+    res.json({
+      totalEvents: allEvents.length,
+      oooEventsCount: oooEvents.length,
+      calendarId: settings.selectedCalendarId || 'primary',
+      dateRange: {
+        from: startOfYear.toISOString(),
+        to: endOfYear.toISOString()
+      },
+      first10Events: allEvents.slice(0, 10),
+      oooEvents: oooEvents.map(e => ({ summary: e.summary, eventType: e.eventType }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+
 // Define the permissions we need
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
@@ -249,15 +303,16 @@ app.get('/api/events', async (req, res) => {
     const settings = await loadSettings();
     
     const currentYear = new Date().getFullYear();
-    const startOfYear = new Date(currentYear, 0, 1);
-    const endOfYear = new Date(currentYear, 11, 31);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59);
     
-    console.log('Fetching events from:', startOfYear.toISOString(), 'to:', endOfYear.toISOString());
+    console.log('Fetching events from:', today.toISOString(), 'to:', endOfYear.toISOString());
     console.log('Using calendar:', settings.selectedCalendarId || 'primary');
     
     const response = await calendar.events.list({
       calendarId: settings.selectedCalendarId || 'primary',
-      timeMin: startOfYear.toISOString(),
+      timeMin: today.toISOString(),
       timeMax: endOfYear.toISOString(),
       singleEvents: true,
       orderBy: 'startTime',

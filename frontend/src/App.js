@@ -187,6 +187,12 @@ function App() {
       const settingsData = await settingsRes.json();
       const logsData = await logsRes.json();
 
+      console.log('API Response:', {
+        status: statusRes.status,
+        eventsCount: eventsData.events?.length || 0,
+        events: eventsData.events
+      });
+
       setStatus(statusData);
       setEvents(eventsData.events || []);
       setSettings(settingsData);
