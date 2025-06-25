@@ -183,6 +183,9 @@ function App() {
       setLogs(logsData.logs || []);
       setLoading(false);
       
+      // Debug: Log the events we're getting
+      console.log('Fetched events:', eventsData.events);
+      
       // Update PTO planned count based on PTO events
       updatePlannedPTO(eventsData.events || []);
     } catch (error) {
@@ -738,7 +741,7 @@ function App() {
                 </p>
               ) : (
                 <div>
-                  {events.slice(0, 3).map((event, i) => (
+                  {events.slice(0, 5).map((event, i) => (
                     <div key={i} style={styles.eventItem}>
                       <div style={styles.eventItemHeader}>
                         <div>
@@ -765,9 +768,9 @@ function App() {
                       </div>
                     </div>
                   ))}
-                  {events.length > 3 && (
+                  {events.length > 5 && (
                     <p style={{ marginTop: '1rem', color: '#6b7280', fontStyle: 'italic' }}>
-                      <small>+ {events.length - 3} more moments of peace. View all in Sacred Time tab.</small>
+                      <small>+ {events.length - 5} more moments of peace. View all in Sacred Time tab.</small>
                     </p>
                   )}
                 </div>

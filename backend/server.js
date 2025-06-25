@@ -104,21 +104,20 @@ async function loadPTOData() {
   } catch (error) {
     // File doesn't exist, return defaults with pre-populated holidays
     const currentYear = new Date().getFullYear();
-    const nextYear = currentYear + 1;
     
     const defaults = {
       ptoBalance: { available: 15, used: 0, planned: 0 },
       holidays: [
-        { id: 'h1', name: "New Year's Day", date: `${nextYear}-01-01`, observedDate: `${nextYear}-01-01` },
-        { id: 'h2', name: 'Martin Luther King Jr. Day', date: `${nextYear}-01-20`, observedDate: `${nextYear}-01-20` },
-        { id: 'h3', name: "Presidents' Day", date: `${nextYear}-02-17`, observedDate: `${nextYear}-02-17` },
-        { id: 'h4', name: 'Memorial Day', date: `${nextYear}-05-26`, observedDate: `${nextYear}-05-26` },
-        { id: 'h5', name: 'Independence Day', date: `${nextYear}-07-04`, observedDate: `${nextYear}-07-04` },
-        { id: 'h6', name: 'Labor Day', date: `${nextYear}-09-01`, observedDate: `${nextYear}-09-01` },
-        { id: 'h7', name: 'Thanksgiving', date: `${nextYear}-11-27`, observedDate: `${nextYear}-11-27` },
-        { id: 'h8', name: 'Day After Thanksgiving', date: `${nextYear}-11-28`, observedDate: `${nextYear}-11-28` },
-        { id: 'h9', name: 'Christmas Eve', date: `${nextYear}-12-24`, observedDate: `${nextYear}-12-24` },
-        { id: 'h10', name: 'Christmas', date: `${nextYear}-12-25`, observedDate: `${nextYear}-12-25` }
+        { id: 'h1', name: "New Year's Day", date: '2025-01-01', observedDate: '2025-01-01' },
+        { id: 'h2', name: 'Martin Luther King Jr. Day', date: '2025-01-20', observedDate: '2025-01-20' },
+        { id: 'h3', name: "Presidents' Day", date: '2025-02-17', observedDate: '2025-02-17' },
+        { id: 'h4', name: 'Memorial Day', date: '2025-05-26', observedDate: '2025-05-26' },
+        { id: 'h5', name: 'Independence Day', date: '2025-07-04', observedDate: '2025-07-04' },
+        { id: 'h6', name: 'Labor Day', date: '2025-09-01', observedDate: '2025-09-01' },
+        { id: 'h7', name: 'Thanksgiving', date: '2025-11-27', observedDate: '2025-11-27' },
+        { id: 'h8', name: 'Day After Thanksgiving', date: '2025-11-28', observedDate: '2025-11-28' },
+        { id: 'h9', name: 'Christmas Eve', date: '2025-12-24', observedDate: '2025-12-24' },
+        { id: 'h10', name: 'Christmas', date: '2025-12-25', observedDate: '2025-12-25' }
       ]
     };
     
@@ -192,12 +191,12 @@ app.get('/api/events', async (req, res) => {
     const settings = await loadSettings();
     
     const now = new Date();
-    const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const oneYearFromNow = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
     
     const response = await calendar.events.list({
       calendarId: settings.selectedCalendarId || 'primary',
       timeMin: now.toISOString(),
-      timeMax: twoWeeksFromNow.toISOString(),
+      timeMax: oneYearFromNow.toISOString(),
       singleEvents: true,
       orderBy: 'startTime',
     });
