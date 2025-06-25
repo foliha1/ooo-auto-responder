@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
+const API = 'https://ooo-api-o6ab.onrender.com';
+
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(onClose, 3000);
@@ -27,7 +29,7 @@ const App = () => {
   const [logs, setLogs] = useState([]);
 
   useEffect(() => {
-    fetch('/api/status')
+    fetch(`${API}/api/status`)
       .then((res) => res.json())
       .then((data) => {
         setEnabled(data.enabled);
@@ -47,7 +49,7 @@ const App = () => {
 
   const toggleAutomation = () => {
     setLoading(true);
-    fetch('/api/toggle', {
+    fetch(`${API}/api/toggle`, {
       method: 'POST',
     })
       .then((res) => res.json())
@@ -62,21 +64,21 @@ const App = () => {
   };
 
   const loadEvents = () => {
-    fetch('/api/events')
+    fetch(`${API}/api/events`)
       .then(res => res.json())
       .then(setEvents)
       .catch(() => setToast({ message: 'Failed to load events', type: 'error' }));
   };
 
   const loadSettings = () => {
-    fetch('/api/settings')
+    fetch(`${API}/api/settings`)
       .then(res => res.json())
       .then(setSettings)
       .catch(() => setToast({ message: 'Failed to load settings', type: 'error' }));
   };
 
   const loadLogs = () => {
-    fetch('/api/logs')
+    fetch(`${API}/api/logs`)
       .then(res => res.json())
       .then(setLogs)
       .catch(() => setToast({ message: 'Failed to load logs', type: 'error' }));
