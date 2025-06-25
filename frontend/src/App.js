@@ -1,80 +1,156 @@
-// This is the updated App.js entry point
-// We'll move the full inline styles to a separate file called styles.js
-// All functionality remains the same
-
 import React, { useState, useEffect } from 'react';
-import styles, { animationStyles } from './style'; // styles split into external file
-import Toast from './Toast'; // Assume Toast component also lives in its own file
+import './App.css';
+
+const styles = {
+  appContainer: {
+    fontFamily: 'sans-serif',
+    backgroundColor: '#fdfcf9',
+    color: '#2f2f2f',
+    minHeight: '100vh',
+    padding: '40px',
+    boxSizing: 'border-box',
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '48px',
+  },
+  title: {
+    fontSize: '28px',
+    fontWeight: '600',
+    color: '#3b3a39',
+  },
+  toggleBtn: {
+    backgroundColor: '#f0ebe3',
+    color: '#3b3a39',
+    padding: '12px 20px',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '16px',
+    transition: 'background-color 0.3s ease',
+  },
+  toggleBtnHover: {
+    backgroundColor: '#e0dcd4'
+  },
+  main: {
+    maxWidth: '480px',
+    margin: '0 auto'
+  },
+  card: {
+    backgroundColor: '#fff',
+    padding: '32px',
+    borderRadius: '16px',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.06)',
+    textAlign: 'center'
+  },
+  cardTitle: {
+    fontSize: '20px',
+    marginBottom: '12px',
+  },
+  cardText: {
+    fontSize: '16px',
+    color: '#5a5a5a'
+  },
+  toast: {
+    position: 'fixed',
+    top: '20px',
+    right: '20px',
+    backgroundColor: '#ffffff',
+    padding: '16px 24px',
+    borderRadius: '12px',
+    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    fontSize: '14px',
+    borderLeft: '4px solid #cccccc'
+  },
+  success: {
+    borderLeftColor: '#78c2ad'
+  },
+  error: {
+    borderLeftColor: '#f27596'
+  }
+};
+
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 4000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div style={{ ...styles.toast, ...(type === 'success' ? styles.success : styles.error) }}>
+      <span>{type === 'success' ? '✓' : '⚠️'}</span>
+      <span>{message}</span>
+      <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '16px' }}>×</button>
+    </div>
+  );
+};
 
 function App() {
   const [status, setStatus] = useState(null);
-  const [events, setEvents] = useState([]);
-  const [settings, setSettings] = useState(null);
-  const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [testMessage, setTestMessage] = useState('');
-  const [showScheduler, setShowScheduler] = useState(false);
-  const [calendars, setCalendars] = useState([]);
-  const [toasts, setToasts] = useState([]);
-  const [newEvent, setNewEvent] = useState({
-    summary: 'Out of Office',
-    startDate: '',
-    startTime: '09:00',
-    endDate: '',
-    endTime: '17:00',
-    tone: 'professional',
-    customMessage: '',
-    allDay: false
-  });
-
+  const [toast, setToast] = useState(null);
   const API_URL = process.env.REACT_APP_API_URL || 'https://ooo-api-o6ab.onrender.com/api';
 
-  const showToast = (message, type = 'info') => {
-    const id = Date.now();
-    setToasts(prev => [...prev.slice(-2), { id, message, type }]);
-  };
-
-  const removeToast = (id) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
+  const fetchStatus = async () => {
+    try {
+      const res = await fetch(`${API_URL}/status`);
+      const data = await res.json();
+      setStatus(data);
+    } catch (err) {
+      setToast({ message: 'Connection error. Trying again soon.', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = animationStyles;
-    document.head.appendChild(style);
-    return () => document.head.removeChild(style);
+    fetchStatus();
   }, []);
 
-  useEffect(() => {
-    fetchData();
-    fetchCalendars();
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchData = async () => { /* ...same as before... */ };
-  const fetchCalendars = async () => { /* ... */ };
-  const toggleAutomation = async () => { /* ... */ };
-  const toggleResponder = async (enabled) => { /* ... */ };
-  const updateSettings = async (newSettings) => { /* ... */ };
-  const createEvent = async () => { /* ... */ };
-  const deleteEvent = async (id, summary) => { /* ... */ };
-  const formatDate = (dateString) => { /* ... */ };
+  const toggleAutomation = async () => {
+    try {
+      const res = await fetch(`${API_URL}/toggle-automation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !status.automationEnabled })
+      });
+      const data = await res.json();
+      setStatus(prev => ({ ...prev, automationEnabled: data.automationEnabled }));
+      setToast({
+        message: data.automationEnabled ? 'Protection is now active 🛡️' : 'Automation paused — all you now.',
+        type: 'success'
+      });
+    } catch {
+      setToast({ message: 'Could not update status. Try again.', type: 'error' });
+    }
+  };
 
   if (loading) {
-    return (
-      <div style={styles.loading}>
-        <div style={styles.spinner}></div>
-        <p>Setting up your sanctuary...</p>
-      </div>
-    );
+    return <div style={styles.appContainer}>Loading your space...</div>;
   }
 
   return (
-    <div style={styles.app}>
-      {/* Toast notifications, header, nav, and content go here */}
-      {/* For brevity, omitted in this version — see full version from earlier */}
+    <div style={styles.appContainer}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      <header style={styles.header}>
+        <h1 style={styles.title}>🌿 Space for You</h1>
+        <button style={styles.toggleBtn} onClick={toggleAutomation}>
+          {status.automationEnabled ? 'Pause Protection' : 'Enable Protection'}
+        </button>
+      </header>
+
+      <main style={styles.main}>
+        <section style={styles.card}>
+          <h2 style={styles.cardTitle}>Status</h2>
+          <p style={styles.cardText}>Automation: <strong>{status.automationEnabled ? 'Enabled' : 'Disabled'}</strong></p>
+        </section>
+      </main>
     </div>
   );
 }
