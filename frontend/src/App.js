@@ -128,6 +128,8 @@ function App() {
   const [showHolidayModal, setShowHolidayModal] = useState(false);
   const [showSuggestionConfirm, setShowSuggestionConfirm] = useState(false);
   const [modalData, setModalData] = useState({});
+  const [editingTemplates, setEditingTemplates] = useState(false);
+  const [tempTemplates, setTempTemplates] = useState(null);
   const [newEvent, setNewEvent] = useState({
     summary: 'Out of Office',
     startDate: '',
@@ -743,14 +745,32 @@ function App() {
                   
                   <div style={styles.formGroup}>
                     <label style={styles.formLabel}>Message vibe:</label>
-                    <select
-                      style={styles.select}
-                      value={newEvent.tone}
-                      onChange={(e) => setNewEvent({...newEvent, tone: e.target.value})}
-                    >
-                      <option value="professional">Professional & Clear</option>
-                      <option value="casual">Warm & Friendly</option>
-                    </select>
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                      <button
+                        type="button"
+                        style={{
+                          ...styles.button,
+                          ...(newEvent.tone === 'professional' ? styles.primaryButton : styles.secondaryButton),
+                          padding: '0.5rem 1rem',
+                          fontSize: '0.875rem'
+                        }}
+                        onClick={() => setNewEvent({...newEvent, tone: 'professional'})}
+                      >
+                        Professional
+                      </button>
+                      <button
+                        type="button"
+                        style={{
+                          ...styles.button,
+                          ...(newEvent.tone === 'casual' ? styles.primaryButton : styles.secondaryButton),
+                          padding: '0.5rem 1rem',
+                          fontSize: '0.875rem'
+                        }}
+                        onClick={() => setNewEvent({...newEvent, tone: 'casual'})}
+                      >
+                        Casual
+                      </button>
+                    </div>
                   </div>
                   
                   <div style={styles.formGroup}>
@@ -913,14 +933,28 @@ function App() {
               
               <div style={{ marginBottom: '2rem' }}>
                 <h3>Default Message Tone</h3>
-                <select 
-                  style={{ ...styles.select, width: 'auto', minWidth: '200px' }}
-                  value={settings.defaultTone}
-                  onChange={(e) => updateSettings({ ...settings, defaultTone: e.target.value })}
-                >
-                  <option value="professional">Professional & Clear</option>
-                  <option value="casual">Warm & Friendly</option>
-                </select>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+                  <button
+                    style={{
+                      ...styles.button,
+                      ...(settings.defaultTone === 'professional' ? styles.primaryButton : styles.secondaryButton),
+                      minWidth: '150px'
+                    }}
+                    onClick={() => updateSettings({ ...settings, defaultTone: 'professional' })}
+                  >
+                    Professional & Clear
+                  </button>
+                  <button
+                    style={{
+                      ...styles.button,
+                      ...(settings.defaultTone === 'casual' ? styles.primaryButton : styles.secondaryButton),
+                      minWidth: '150px'
+                    }}
+                    onClick={() => updateSettings({ ...settings, defaultTone: 'casual' })}
+                  >
+                    Warm & Friendly
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -929,33 +963,108 @@ function App() {
                   Craft messages that honor your time while maintaining connection.
                 </p>
                 
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h4>Professional & Clear</h4>
-                  <textarea
-                    style={styles.textarea}
-                    value={settings.templates.professional}
-                    onChange={(e) => updateSettings({
-                      ...settings,
-                      templates: { ...settings.templates, professional: e.target.value }
-                    })}
-                    rows="4"
-                  />
-                  <small style={{ color: '#6b7280' }}>Use {'{date}'} to automatically insert your return date</small>
-                </div>
+                {!editingTemplates ? (
+                  <div>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      <h4>Professional & Clear</h4>
+                      <div style={{
+                        ...styles.textarea,
+                        backgroundColor: '#faf8f5',
+                        cursor: 'default'
+                      }}>
+                        {settings.templates.professional}
+                      </div>
+                      <small style={{ color: '#6b7280' }}>Use {'{date}'} to automatically insert your return date</small>
+                    </div>
 
-                <div>
-                  <h4>Warm & Friendly</h4>
-                  <textarea
-                    style={styles.textarea}
-                    value={settings.templates.casual}
-                    onChange={(e) => updateSettings({
-                      ...settings,
-                      templates: { ...settings.templates, casual: e.target.value }
-                    })}
-                    rows="4"
-                  />
-                  <small style={{ color: '#6b7280' }}>Use {'{date}'} to automatically insert your return date</small>
-                </div>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      <h4>Warm & Friendly</h4>
+                      <div style={{
+                        ...styles.textarea,
+                        backgroundColor: '#faf8f5',
+                        cursor: 'default'
+                      }}>
+                        {settings.templates.casual}
+                      </div>
+                      <small style={{ color: '#6b7280' }}>Use {'{date}'} to automatically insert your return date</small>
+                    </div>
+                    
+                    <button
+                      style={{ ...styles.button, ...styles.primaryButton }}
+                      onClick={() => {
+                        setTempTemplates({ ...settings.templates });
+                        setEditingTemplates(true);
+                      }}
+                    >
+                      Edit Messages
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      <h4>Professional & Clear</h4>
+                      <textarea
+                        style={styles.textarea}
+                        value={tempTemplates.professional}
+                        onChange={(e) => setTempTemplates({
+                          ...tempTemplates,
+                          professional: e.target.value
+                        })}
+                        rows="4"
+                        onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
+                        onBlur={(e) => Object.assign(e.target.style, { 
+                          borderColor: styles.textarea.borderColor,
+                          boxShadow: 'none'
+                        })}
+                      />
+                      <small style={{ color: '#6b7280' }}>Use {'{date}'} to automatically insert your return date</small>
+                    </div>
+
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      <h4>Warm & Friendly</h4>
+                      <textarea
+                        style={styles.textarea}
+                        value={tempTemplates.casual}
+                        onChange={(e) => setTempTemplates({
+                          ...tempTemplates,
+                          casual: e.target.value
+                        })}
+                        rows="4"
+                        onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
+                        onBlur={(e) => Object.assign(e.target.style, {
+                          borderColor: styles.textarea.borderColor,
+                          boxShadow: 'none'
+                        })}
+                      />
+                      <small style={{ color: '#6b7280' }}>Use {'{date}'} to automatically insert your return date</small>
+                    </div>
+                    
+                    <div style={styles.formActions}>
+                      <button
+                        style={{ ...styles.button, ...styles.primaryButton }}
+                        onClick={() => {
+                          updateSettings({
+                            ...settings,
+                            templates: tempTemplates
+                          });
+                          setEditingTemplates(false);
+                          showToast('Your message templates have been saved! ✨', 'success');
+                        }}
+                      >
+                        Save Changes
+                      </button>
+                      <button
+                        style={{ ...styles.button, ...styles.secondaryButton }}
+                        onClick={() => {
+                          setEditingTemplates(false);
+                          setTempTemplates(null);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
